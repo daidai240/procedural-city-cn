@@ -1,0 +1,18 @@
+{
+  "name": "procedural-city-cn",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "程序化 3D 中国城市生成器：重庆 / 陆家嘴 / 西安 / 赛博深圳 / 江南水乡",
+  "license": "MIT",
+  "scripts": {
+    "start": "node tests/serve.mjs",
+    "test": "node tests/smoke.mjs",
+    "capture": "node tests/capture.mjs"
+  },
+  "devDependencies": {
+    "jpeg-js": "^0.4.4",
+    "playwright": "^1.65.1",
+    "pngjs": "^7.0.0"
+  }
+}
