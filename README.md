@@ -31,6 +31,7 @@
 - **天际线**：平均高度、高度差异
 - **功能分区**：商业办公 / 住宅社区 / 工业仓储配比
 - **环境**：水域范围、公园绿地、地形起伏、时间光线、雾气浓度
+- **昼夜切换**：面板右上角的「夜间 / 白天」按钮，一键在白天与夜间光照之间切换，时间光线滑杆仍可继续微调
 - **生成**：种子输入、随机种子、重新生成
 - **视角**：每种城市 3 个电影机位
 - **开关**：地标标签、自动漫游、辉光
@@ -65,6 +66,7 @@ npm test
 - 检查画面非空、五城两两视觉差异、地标标签、建筑数量
 - 调整密度滑杆，验证实时重建与画面变化
 - 调整时间光线，验证昼夜差异
+- 点击昼夜切换按钮，验证白天 / 夜间光照、按钮状态与滑杆同步
 - 验证视角切换、种子可复现、无控制台错误
 
 视觉回归依赖无头 Chromium 的 SwiftShader 软件渲染，所以测试启动较慢，但不需要真实 GPU。
@@ -113,6 +115,8 @@ npm test
 最终效果见 [`docs/screenshots/final/`](docs/screenshots/final/)。每张图中右侧面板展示了该城市的默认参数与机位。
 
 近景细节与远景轮廓的 Before / After 对照见 [`docs/screenshots/detail-lod/`](docs/screenshots/detail-lod/)，可用 `npm run capture:detail` 重新采集。
+
+昼夜切换按钮的 Before / After 对照见 [`docs/screenshots/daynight/`](docs/screenshots/daynight/)，可用 `npm run capture:daynight` 重新采集（基线用 `--root <baseline checkout>`）。
 
 ## 许可
 
