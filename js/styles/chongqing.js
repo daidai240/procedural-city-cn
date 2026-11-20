@@ -53,7 +53,7 @@ export default {
   defaults: {
     density: 0.9, block: 0.85, avgHeight: 0.9, heightVar: 0.72,
     commercial: 0.44, residential: 0.46, industrial: 0.1,
-    water: 0.9, parks: 0.12, terrain: 0.85, time: 0.9, fog: 0.42,
+    water: 0.9, parks: 0.12, terrain: 0.85, time: 0.2, fog: 0.42,
   },
   views: [
     { key: 'south', label: '南岸全景', pos: [140, 195, 490], target: [8, 22, 20] },

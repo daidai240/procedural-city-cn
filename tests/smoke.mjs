@@ -88,6 +88,17 @@ await page.goto(baseUrl, { waitUntil: 'load', timeout: 60000 });
 await page.waitForFunction(() => window.__CITY_READY__ === true, { timeout: 120000 });
 await page.waitForTimeout(2600);
 
+const initial = await page.evaluate(() => ({
+  style: window.__CITY__.style.id,
+  time: window.__CITY__.state.time,
+  dayW: window.__CITY__.env.dayW,
+}));
+check(
+  'default city opens in daytime',
+  initial.style === 'chongqing' && initial.time < 0.28 && initial.dayW === 1,
+  initial
+);
+
 const ids = ['chongqing', 'lujiazui', 'xian', 'shenzhen', 'jiangnan'];
 const shots = {};
 const stats = {};
@@ -156,17 +167,17 @@ await page.evaluate(() => {
   el.value = '0.9';
   el.dispatchEvent(new Event('input', { bubbles: true }));
   const time = document.getElementById('ctrl-time');
-  time.value = '0.12';
+  time.value = '0.9';
   time.dispatchEvent(new Event('input', { bubbles: true }));
 });
 await page.waitForTimeout(1400);
-const dayBuf = await page.screenshot({ path: path.join(outDir, 'chongqing-day.png') });
-const dayPng = PNG.sync.read(dayBuf);
-const dayStats = analyze(dayPng);
+const nightBuf = await page.screenshot({ path: path.join(outDir, 'chongqing-night.png') });
+const nightPng = PNG.sync.read(nightBuf);
+const nightStats = analyze(nightPng);
 check(
   'time-of-day slider changes lighting',
-  Math.abs(dayStats.mean - stats.chongqing.mean) > 3,
-  { night: Math.round(stats.chongqing.mean), day: Math.round(dayStats.mean) }
+  Math.abs(nightStats.mean - stats.chongqing.mean) > 3,
+  { day: Math.round(stats.chongqing.mean), night: Math.round(nightStats.mean) }
 );
 
 // ------- camera views -------
