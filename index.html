@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>华夏城市生成器 · 程序化 3D 中国城市</title>
+  <meta name="description" content="程序化生成的中国城市 3D 生成器：重庆 8D 魔幻山城、上海陆家嘴、古都西安、赛博深圳、江南水乡。实时调整布局、天际线、地形与时间。" />
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./css/app.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three.module.min.js",
+        "three/addons/": "./vendor/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <canvas id="scene" aria-label="程序化生成的 3D 城市"></canvas>
+    <div class="grade" aria-hidden="true"></div>
+    <div id="labels" aria-hidden="true"></div>
+
+    <header class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <span>城</span><span>市</span>
+      </div>
+      <div class="brand-text">
+        <div class="brand-cn">华夏城市生成器</div>
+        <div class="brand-en">PROCEDURAL CITY · CHINA</div>
+      </div>
+    </header>
+
+    <div class="hud hud-left">
+      <div class="hud-row"><span class="hud-key">种子</span><span id="stat-seed">—</span></div>
+      <div class="hud-row"><span class="hud-key">建筑</span><span id="stat-buildings">—</span></div>
+      <div class="hud-row"><span class="hud-key">视角</span><span id="stat-camera">全景</span></div>
+      <div class="hud-row hud-fps"><span class="hud-key">FPS</span><span id="stat-fps">—</span></div>
+    </div>
+
+    <div class="hud hud-right">
+      <div class="hint-line"><span class="mouse-dot"></span>拖拽旋转 · 滚轮缩放 · 右键平移</div>
+      <div class="hint-line dim">数字键 1–5 切换城市 · R 重新生成 · 空格 自动漫游</div>
+    </div>
+
+    <button id="panel-open" class="panel-open" hidden aria-label="打开参数面板">
+      <span>调参</span>
+    </button>
+
+    <aside id="panel" class="panel" aria-label="城市生成参数面板">
+      <div class="panel-head">
+        <div class="panel-city">
+          <div class="eyebrow" id="city-index">01 / 05 · 中国城市</div>
+          <h1 id="city-name">重庆</h1>
+          <p id="city-sub">8D 魔幻山城</p>
+        </div>
+        <button id="panel-close" class="icon-btn" aria-label="收起参数面板" title="收起面板">
+          <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><path d="M4 4l12 12M16 4L4 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="panel-scroll" id="panel-scroll">
+        <section class="block">
+          <div class="block-title"><span>城市风格</span><em>STYLE PRESETS</em></div>
+          <div class="preset-grid" id="preset-grid"></div>
+        </section>
+
+        <section class="block">
+          <div class="block-title"><span>视角</span><em>CAMERA</em></div>
+          <div class="view-row" id="view-row"></div>
+        </section>
+
+        <div id="controls"></div>
+
+        <section class="block">
+          <div class="block-title"><span>种子</span><em>SEED</em></div>
+          <div class="seed-row">
+            <input id="seed-input" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" aria-label="城市种子" />
+            <button id="seed-dice" class="mini-btn" title="随机种子">
+              <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/><circle cx="13" cy="13" r="1.2" fill="currentColor"/><circle cx="7" cy="13" r="1.2" fill="currentColor"/><circle cx="13" cy="7" r="1.2" fill="currentColor"/></svg>
+              随机
+            </button>
+          </div>
+          <p class="tip">同一种子 + 同一组参数，城市完全可复现。</p>
+        </section>
+      </div>
+
+      <div class="panel-foot">
+        <button id="btn-regen" class="primary-btn">
+          <span>重新生成</span>
+          <kbd>R</kbd>
+        </button>
+        <div class="toggles">
+          <label class="toggle"><input type="checkbox" id="tg-rotate" /><span class="toggle-track"><span class="toggle-thumb"></span></span>自动漫游</label>
+          <label class="toggle"><input type="checkbox" id="tg-labels" checked /><span class="toggle-track"><span class="toggle-thumb"></span></span>地标标签</label>
+          <label class="toggle"><input type="checkbox" id="tg-bloom" checked /><span class="toggle-track"><span class="toggle-thumb"></span></span>辉光</label>
+        </div>
+      </div>
+    </aside>
+
+    <div id="transition" aria-hidden="true">
+      <div class="transition-inner">
+        <span class="transition-en" id="transition-en">CHONGQING</span>
+        <h2 id="transition-name">重庆</h2>
+        <p id="transition-sub">8D 魔幻山城</p>
+      </div>
+    </div>
+
+    <div id="loader">
+      <div class="loader-ring"></div>
+      <div class="loader-text" id="loader-text">正在生成城市…</div>
+    </div>
+
+    <div id="toast" role="status"></div>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
