@@ -39,6 +39,16 @@ const statCamera = document.getElementById('stat-camera');
 const cityName = document.getElementById('city-name');
 const citySub = document.getElementById('city-sub');
 const cityIndex = document.getElementById('city-index');
+const btnDayNight = document.getElementById('btn-daynight');
+const modeLabel = document.getElementById('mode-label');
+
+// The one-click day / night switch jumps between two canonical looks: the same
+// 0.2 daylight and 0.9 deep-night values used by the screenshot scenarios. Any
+// time at or past the halfway point of the timeline already has dusk/night
+// lighting, so the button offers daylight from there.
+const DAY_TIME = 0.2;
+const NIGHT_TIME = 0.9;
+const NIGHT_MODE_FROM = 0.5;
 
 const SLIDERS = {
   size: { min: 0.6, max: 1.6, step: 0.01, fmt: (v) => `${v.toFixed(2)}×` },
@@ -243,6 +253,7 @@ function build() {
   env.setWaterVisible(style.hasWater !== false);
   env.apply(style, state);
   applyNight();
+  updateDayNightButton();
   applyLabels(stats.labels || []);
   statBuildings.textContent = stats.buildings.toLocaleString('en-US');
   statSeed.textContent = String(state.seed);
@@ -268,6 +279,37 @@ function applyNight() {
   if (ctx.traffic) ctx.traffic.setNight(night);
   if (ctx.lampMaterial) ctx.lampMaterial.opacity = 0.32 + night * 0.72;
   if (bloomPass) bloomPass.strength = (style && style.id === 'shenzhen') ? 0.42 : 0.34 + night * 0.16;
+}
+
+// ---------------------------------------------------------------------------
+// Day / night mode
+// ---------------------------------------------------------------------------
+function isNightMode() {
+  return state.time >= NIGHT_MODE_FROM;
+}
+
+function updateDayNightButton() {
+  if (!btnDayNight) return;
+  const night = isNightMode();
+  btnDayNight.classList.toggle('is-night', night);
+  const target = night ? '白天' : '夜间';
+  if (modeLabel) modeLabel.textContent = target;
+  const label = `切换到${target}模式`;
+  btnDayNight.setAttribute('aria-label', label);
+  btnDayNight.title = label;
+}
+
+function setTimeOfDay(value) {
+  state.time = clamp(value, SLIDERS.time.min, SLIDERS.time.max);
+  const slider = document.getElementById('ctrl-time');
+  if (slider) {
+    slider.value = String(state.time);
+    updateSliderVisual(slider, 'time');
+  }
+  env.apply(style, state);
+  applyNight();
+  updateDayNightButton();
+  updateHashSoon();
 }
 
 function queueBuild(delay = 130) {
@@ -458,6 +500,7 @@ function renderControls() {
         env.apply(style, state);
         applyNight();
         if (bloomPass) bloomPass.strength = (style.id === 'shenzhen') ? 0.42 : 0.34 + env.windowNight * 0.16;
+        updateDayNightButton();
         updateHashSoon();
       } else {
         queueBuild(key === 'pattern' ? 0 : 110);
@@ -615,6 +658,10 @@ tgLabels.addEventListener('change', () => {
 
 tgBloom.addEventListener('change', () => {
   if (bloomPass) bloomPass.enabled = tgBloom.checked;
+});
+
+btnDayNight.addEventListener('click', () => {
+  setTimeOfDay(isNightMode() ? DAY_TIME : NIGHT_TIME);
 });
 
 panelClose.addEventListener('click', () => {

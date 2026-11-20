@@ -55,9 +55,16 @@
           <h1 id="city-name">重庆</h1>
           <p id="city-sub">8D 魔幻山城</p>
         </div>
-        <button id="panel-close" class="icon-btn" aria-label="收起参数面板" title="收起面板">
-          <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><path d="M4 4l12 12M16 4L4 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-        </button>
+        <div class="panel-tools">
+          <button id="btn-daynight" class="mode-btn" type="button" aria-label="切换到夜间模式" title="切换到夜间模式">
+            <svg class="icon-moon" viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M15.2 12.6A6.4 6.4 0 0 1 7.4 4.8a6.4 6.4 0 1 0 7.8 7.8z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+            <svg class="icon-sun" viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><circle cx="10" cy="10" r="3.3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10 2.2v2.1M10 15.7v2.1M2.2 10h2.1M15.7 10h2.1M4.5 4.5l1.5 1.5M14 14l1.5 1.5M15.5 4.5L14 6M6 14l-1.5 1.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            <span id="mode-label">夜间</span>
+          </button>
+          <button id="panel-close" class="icon-btn" aria-label="收起参数面板" title="收起面板">
+            <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><path d="M4 4l12 12M16 4L4 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+        </div>
       </div>
 
       <div class="panel-scroll" id="panel-scroll">

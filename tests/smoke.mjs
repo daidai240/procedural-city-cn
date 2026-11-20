@@ -177,6 +177,71 @@ check(
   { night: Math.round(stats.chongqing.mean), day: Math.round(dayStats.mean) }
 );
 
+// ------- day / night mode button -------
+const modeBtn = page.locator('#btn-daynight');
+check('day/night button is visible', await modeBtn.isVisible());
+
+await page.evaluate(() => {
+  const time = document.getElementById('ctrl-time');
+  time.value = '0.2';
+  time.dispatchEvent(new Event('input', { bubbles: true }));
+});
+await page.waitForTimeout(700);
+const modeAtDay = await page.evaluate(() => ({
+  label: document.getElementById('mode-label').textContent,
+  night: document.getElementById('btn-daynight').classList.contains('is-night'),
+  aria: document.getElementById('btn-daynight').getAttribute('aria-label'),
+}));
+check(
+  'day/night button offers night in daytime',
+  modeAtDay.label === '夜间' && modeAtDay.night === false && /夜间/.test(modeAtDay.aria || ''),
+  modeAtDay
+);
+const dayModeBuf = await page.screenshot();
+const dayModePng = PNG.sync.read(dayModeBuf);
+const dayModeStats = analyze(dayModePng);
+
+await page.evaluate(() => document.getElementById('btn-daynight').click());
+await page.waitForFunction(() => Math.abs(window.__CITY__.state.time - 0.9) < 1e-6, { timeout: 60000 });
+await page.waitForTimeout(600);
+const modeAtNight = await page.evaluate(() => ({
+  time: window.__CITY__.state.time,
+  slider: Number(document.getElementById('ctrl-time').value),
+  label: document.getElementById('mode-label').textContent,
+  night: document.getElementById('btn-daynight').classList.contains('is-night'),
+  aria: document.getElementById('btn-daynight').getAttribute('aria-label'),
+}));
+check(
+  'day/night button switches to night',
+  Math.abs(modeAtNight.time - 0.9) < 1e-9 && modeAtNight.slider === 0.9,
+  modeAtNight
+);
+check(
+  'night mode updates button state and label',
+  modeAtNight.label === '白天' && modeAtNight.night === true && /白天/.test(modeAtNight.aria || ''),
+  modeAtNight
+);
+const nightModeBuf = await page.screenshot({ path: path.join(outDir, 'chongqing-night-mode.png') });
+const nightModeStats = analyze(PNG.sync.read(nightModeBuf));
+check(
+  'night mode visibly darker than day mode',
+  Math.abs(nightModeStats.mean - dayModeStats.mean) > 3,
+  { day: Math.round(dayModeStats.mean), night: Math.round(nightModeStats.mean) }
+);
+
+await page.evaluate(() => document.getElementById('btn-daynight').click());
+await page.waitForFunction(() => Math.abs(window.__CITY__.state.time - 0.2) < 1e-6, { timeout: 60000 });
+await page.waitForTimeout(600);
+const modeBackToDay = await page.evaluate(() => ({
+  time: window.__CITY__.state.time,
+  label: document.getElementById('mode-label').textContent,
+}));
+check(
+  'day/night button toggles back to day',
+  Math.abs(modeBackToDay.time - 0.2) < 1e-9 && modeBackToDay.label === '夜间',
+  modeBackToDay
+);
+
 // ------- camera views -------
 const beforeCam = await page.evaluate(() => window.__CITY__.camera.position.toArray());
 await page.click('#view-row .view-btn:nth-child(2)');
