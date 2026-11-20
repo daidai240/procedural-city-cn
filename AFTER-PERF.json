@@ -1,0 +1,83 @@
+{
+  "url": "http://127.0.0.1:5182/",
+  "viewport": "1440x900",
+  "renderer": "headless chromium / SwiftShader",
+  "cities": {
+    "chongqing": {
+      "readyMs": 13025,
+      "fps": 0.43045930007290195,
+      "calls": 386,
+      "triangles": 607918,
+      "points": 1416,
+      "geometries": 110,
+      "textures": 19,
+      "programs": 23,
+      "buildings": 791,
+      "readyAt": 22865.199999999255,
+      "domContentLoaded": 542.2999999970198,
+      "loadEvent": 588.8999999985099,
+      "errors": []
+    },
+    "lujiazui": {
+      "readyMs": 5656,
+      "fps": 1.0870451395496399,
+      "calls": 466,
+      "triangles": 86816,
+      "points": 1544,
+      "geometries": 93,
+      "textures": 17,
+      "programs": 22,
+      "buildings": 257,
+      "readyAt": 13100.699999999255,
+      "domContentLoaded": 554.1999999992549,
+      "loadEvent": 592.8999999985099,
+      "errors": []
+    },
+    "xian": {
+      "readyMs": 4771,
+      "fps": 0.7756347277520611,
+      "calls": 1290,
+      "triangles": 80914,
+      "points": 1102,
+      "geometries": 103,
+      "textures": 16,
+      "programs": 21,
+      "buildings": 318,
+      "readyAt": 12355,
+      "domContentLoaded": 557.9000000022352,
+      "loadEvent": 589.6000000014901,
+      "errors": []
+    },
+    "shenzhen": {
+      "readyMs": 6174,
+      "fps": 0.8412787436904094,
+      "calls": 472,
+      "triangles": 142924,
+      "points": 1918,
+      "geometries": 150,
+      "textures": 19,
+      "programs": 25,
+      "buildings": 560,
+      "readyAt": 14251.099999997765,
+      "domContentLoaded": 1003,
+      "loadEvent": 1037.3999999985099,
+      "errors": []
+    },
+    "jiangnan": {
+      "readyMs": 7804,
+      "fps": 0.616408802317414,
+      "calls": 266,
+      "triangles": 151784,
+      "points": 140,
+      "geometries": 50,
+      "textures": 17,
+      "programs": 23,
+      "buildings": 216,
+      "readyAt": 16298.900000002235,
+      "domContentLoaded": 614.5,
+      "loadEvent": 649.3000000007451,
+      "errors": []
+    }
+  },
+  "errors": []
+}

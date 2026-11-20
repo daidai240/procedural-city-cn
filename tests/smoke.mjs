@@ -145,7 +145,7 @@ await page.evaluate(() => {
   el.value = '0.3';
   el.dispatchEvent(new Event('input', { bubbles: true }));
 });
-await page.waitForTimeout(1700);
+await page.waitForTimeout(3200);
 const lowDensity = await page.evaluate(() => ({
   buildings: window.__CITY__.stats.buildings,
   seed: window.__CITY__.state.seed,

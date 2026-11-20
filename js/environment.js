@@ -110,9 +110,11 @@ const WATER_FRAG = `
     vec2 p = vWorld.xz;
     float wave = sin(p.x * 0.018 + uTime * 0.35) * 0.5
                + sin(p.y * 0.024 - uTime * 0.28) * 0.5;
+    float ripple = sin(p.x * 0.42 + uTime * 1.1) * sin(p.y * 0.36 - uTime * 0.9);
     float fres = pow(1.0 - clamp(viewDir.y, 0.0, 1.0), 3.0);
     vec3 col = mix(uDeep, uShallow, 0.42 + 0.12 * wave);
     col = mix(col, uSky, clamp(fres * uReflect, 0.0, 1.0));
+    col += uSky * (ripple * 0.5 + 0.5) * 0.05;
     vec3 n = normalize(vec3(
       sin(p.x * 0.02 + uTime * 0.3) * 0.03,
       1.0,
@@ -121,8 +123,8 @@ const WATER_FRAG = `
     vec3 refl = reflect(-viewDir, n);
     float glint = pow(max(dot(refl, normalize(uSunDir)), 0.0), 200.0);
     col += uSunColor * glint * 1.2;
-    col += uCityGlow * uNight * 0.05 * smoothstep(0.1, 0.4, fres);
-    col += uCityGlow * uNight * 0.035;
+    col += uCityGlow * uNight * 0.07 * smoothstep(0.1, 0.4, fres);
+    col += uCityGlow * uNight * 0.05;
     gl_FragColor = vec4(col, 1.0);
     #include <fog_fragment>
   }
@@ -209,6 +211,11 @@ export class Environment {
     this.time = 0;
     this.sunDir = new THREE.Vector3(0.5, 0.7, 0.4);
     this._palettes = new Map();
+    this.envCube = null;
+    this.envKey = null;
+    // A small procedural IBL: sky/ground gradient cube used for glass and metal
+    // reflections. Kept dim so it adds highlights without flattening the scene.
+    this.scene.environmentIntensity = 0.45;
   }
 
   convertPalette(style) {
@@ -271,8 +278,10 @@ export class Environment {
     this.sun.position.copy(this.sunDir).multiplyScalar(600);
     this.hemi.color.copy(hemiSky);
     this.hemi.groundColor.copy(hemiGround);
-    this.hemi.intensity = hemiIntensity;
-    this.fill.intensity = 0.12 + dayW * 0.5;
+    // City glow keeps bouncing after dark, so lift the hemisphere light instead
+    // of letting the terrain fall to pure black.
+    this.hemi.intensity = hemiIntensity + nightW * 0.24;
+    this.fill.intensity = 0.12 + dayW * 0.5 + duskW * 0.28 + nightW * 0.1;
     this.fill.color.copy(hemiSky);
     this.uplight.intensity = nightW * (style.env.nightCityGlow ?? 0.25);
     this.uplight.color.set(style.env.nightGlowColor ?? '#ff8f6a');
@@ -286,7 +295,7 @@ export class Environment {
     }
 
     this.scene.fog.color.copy(fogColor);
-    const density = (0.00022 + params.fog * 0.0019) * (style.fogScale ?? 1);
+    const density = (0.00022 + params.fog * 0.0019) * (style.fogScale ?? 1) * (1 - nightW * 0.22);
     this.scene.fog.density = density;
 
     this.waterUniforms.uDeep.value.copy(waterDeep);
@@ -295,16 +304,63 @@ export class Environment {
     this.waterUniforms.uSunColor.value.copy(sunColor);
     this.waterUniforms.uSunDir.value.copy(this.sunDir);
     this.waterUniforms.uNight.value = nightW;
-    this.waterUniforms.uReflect.value = style.waterReflect ?? 0.38;
+    this.waterUniforms.uReflect.value = (style.waterReflect ?? 0.38) * (1 + nightW * 0.5);
     this.waterUniforms.uCityGlow.value.copy(paletteColor(pal, 'horizonGlow', dayW, duskW, nightW));
 
-    this.windowNight = smoothstep(0.46, 0.68, t);
+    this.windowNight = Math.min(1, smoothstep(0.46, 0.68, t) * (style.windowBoost ?? 1));
     this.nightW = nightW;
     this.dayW = dayW;
     this.duskW = duskW;
     this.fogColor = fogColor;
     this.sunColor = sunColor;
+    this.updateEnvCube(top, horizon, bottom, glow);
     return { dayW, duskW, nightW };
+  }
+
+  // Rebuild the reflection cube when the palette changes (time slider / style).
+  // Six tiny canvases: a vertical sky gradient on the sides, flat sky above and
+  // ground below, with a warm horizon band for the city glow to catch on glass.
+  updateEnvCube(top, horizon, bottom, glow) {
+    const key = `${top.getHexString()}:${horizon.getHexString()}:${bottom.getHexString()}:${glow.getHexString()}`;
+    if (key === this.envKey) return;
+    this.envKey = key;
+    const size = 64;
+    const face = (mode) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const g = canvas.getContext('2d');
+      if (mode === 'up') {
+        g.fillStyle = top.getStyle();
+        g.fillRect(0, 0, size, size);
+      } else if (mode === 'down') {
+        g.fillStyle = bottom.getStyle();
+        g.fillRect(0, 0, size, size);
+      } else {
+        const grad = g.createLinearGradient(0, 0, 0, size);
+        grad.addColorStop(0, top.getStyle());
+        grad.addColorStop(0.55, horizon.getStyle());
+        grad.addColorStop(0.62, horizon.getStyle());
+        grad.addColorStop(1, bottom.getStyle());
+        g.fillStyle = grad;
+        g.fillRect(0, 0, size, size);
+        g.globalAlpha = 0.16;
+        g.fillStyle = glow.getStyle();
+        g.fillRect(0, size * 0.54, size, size * 0.08);
+        g.globalAlpha = 1;
+      }
+      return canvas;
+    };
+    const cube = new THREE.CubeTexture([
+      face('side'), face('side'),
+      face('up'), face('down'),
+      face('side'), face('side'),
+    ]);
+    cube.colorSpace = THREE.SRGBColorSpace;
+    cube.needsUpdate = true;
+    if (this.envCube) this.envCube.dispose();
+    this.envCube = cube;
+    this.scene.environment = cube;
   }
 
   setNightFor(materials, night) {

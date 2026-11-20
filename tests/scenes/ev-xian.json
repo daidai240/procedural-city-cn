@@ -1,0 +1,7 @@
+{
+  "style": "xian",
+  "time": 0.55,
+  "scenes": [
+    { "name": "xian-wall", "panel": "closed", "labels": false }
+  ]
+}

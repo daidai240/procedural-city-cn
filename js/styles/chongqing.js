@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeFbm2D, smoothstep, clamp } from '../rng.js';
 import { Heightfield, distToPolyline } from '../terrain.js';
-import { ribbonGeometry, samplePath, gableRoofGeometry, twistedTowerGeometry, makeTextTexture } from '../geom.js';
+import { ribbonGeometry, samplePath, hipRoofGeometry, makeTextTexture } from '../geom.js';
 import { addRoad, addLampsAlong } from './shared.js';
 
 const YANGTZE = [
@@ -18,14 +18,14 @@ const PALETTE = {
     waterDeep: '#26383a', waterShallow: '#4f6462', sunIntensity: 1.7, hemiIntensity: 0.8,
   },
   dusk: {
-    skyTop: '#455272', skyHorizon: '#ffa165', skyBottom: '#8a6660', sunColor: '#ffb06e',
-    fogColor: '#cf9275', hemiSky: '#ffc39a', hemiGround: '#3b2d2a', horizonGlow: '#ff7a3d',
-    waterDeep: '#3a3138', waterShallow: '#6b5150', sunIntensity: 1.25, hemiIntensity: 0.62,
+    skyTop: '#3a4666', skyHorizon: '#f0a06a', skyBottom: '#6b5b60', sunColor: '#ffb87e',
+    fogColor: '#a09694', hemiSky: '#8ea8c8', hemiGround: '#30343a', horizonGlow: '#ff8a4a',
+    waterDeep: '#2f343e', waterShallow: '#5a5a64', sunIntensity: 0.85, hemiIntensity: 0.9,
   },
   night: {
-    skyTop: '#040a14', skyHorizon: '#122030', skyBottom: '#070c12', sunColor: '#9fb8d8',
-    fogColor: '#0a1119', hemiSky: '#334a6a', hemiGround: '#4a2a1c', horizonGlow: '#7a2a12',
-    waterDeep: '#07131a', waterShallow: '#1c343c', sunIntensity: 0.45, hemiIntensity: 0.78,
+    skyTop: '#081120', skyHorizon: '#1b2b3d', skyBottom: '#0a121b', sunColor: '#9fb8d8',
+    fogColor: '#0d1620', hemiSky: '#3a5578', hemiGround: '#30343c', horizonGlow: '#7a2a12',
+    waterDeep: '#07131a', waterShallow: '#1c343c', sunIntensity: 0.5, hemiIntensity: 0.95,
   },
   nightCityGlow: 0.75,
   nightGlowColor: '#ff7a3a',
@@ -41,9 +41,9 @@ export default {
   accent: '#ff9a4d',
   accent2: '#ffd9a3',
   accentRgb: '255, 154, 77',
-  fogScale: 1.15,
+  fogScale: 0.72,
   exposure: 1.1,
-  waterReflect: 0.3,
+  waterReflect: 0.5,
   env: PALETTE,
   patterns: [
     { value: 'organic', label: '依山就势' },
@@ -53,12 +53,12 @@ export default {
   defaults: {
     density: 0.9, block: 0.85, avgHeight: 0.9, heightVar: 0.72,
     commercial: 0.44, residential: 0.46, industrial: 0.1,
-    water: 0.9, parks: 0.12, terrain: 0.85, time: 0.9, fog: 0.42,
+    water: 0.9, parks: 0.12, terrain: 0.85, time: 0.68, fog: 0.42,
   },
   views: [
-    { key: 'south', label: '南岸全景', pos: [140, 195, 490], target: [8, 22, 20] },
-    { key: 'hongya', label: '洪崖洞', pos: [188, 72, 236], target: [96, 32, 88] },
-    { key: 'monorail', label: '李子坝', pos: [30, 48, 128], target: [-26, 22, 6] },
+    { key: 'south', label: '南岸全景', pos: [170, 240, 540], target: [8, 55, 20] },
+    { key: 'hongya', label: '洪崖洞', pos: [30, 62, 210], target: [98, 34, 88] },
+    { key: 'monorail', label: '李子坝', pos: [-110, 105, 80], target: [-26, 94, 8] },
   ],
 
   build(ctx) {
@@ -74,8 +74,14 @@ export default {
       const dJ = distToPolyline(x, z, JIALING);
       const dRiver = Math.min(dY - halfYangtze, dJ - halfJialing);
       let h = 4 + fbm(x * 0.0055 + 10, z * 0.0055 - 3) * 30 * (0.5 + params.terrain * 0.9);
+      // The peninsula spine: a real north-south ridge that the city has to
+      // climb. This is what turns a flat grid into a mountain city; terraces
+      // are cut into its flanks below.
+      const ridge = Math.exp(-((x - 20) ** 2) / (2 * 95 * 95)) *
+        smoothstep(220, 60, Math.abs(z - 20)) * 32 * (0.35 + params.terrain * 0.85);
+      h += ridge;
       const cbd = Math.exp(-((x - 20) ** 2 + (z - 6) ** 2) / (2 * 120 * 120));
-      h += cbd * 16 * (0.4 + params.terrain);
+      h += cbd * 10 * (0.4 + params.terrain);
       h += smoothstep(-80, -260, z) * 18 * params.terrain;
       h += smoothstep(210, 330, Math.abs(x)) * 10;
       // Fade the high-frequency ripple out towards the horizon so the distant
@@ -85,16 +91,27 @@ export default {
       const bank = smoothstep(0, 34, dRiver);
       h = -7 + (h + 7) * Math.pow(bank, 0.72);
       if (bank > 0.96) h = Math.max(h, 1.4);
+      // Explicit terraces: quantise the slope into ~4.8 m shelves with a short
+      // ramp, so the hillside reads as countable layers from the river rather
+      // than one smooth green mound.
+      if (bank > 0.955 && h > 3.2) {
+        const step = 4.8;
+        const t = h / step;
+        const f = t - Math.floor(t);
+        // Wide green treads with a short riser: the layers are countable but
+        // most of the hillside stays planted, not bare rock.
+        h = (Math.floor(t) + smoothstep(0.62, 0.85, f)) * step;
+      }
       return h;
     };
 
     const colorFn = (x, z, h, slope, noise) => {
       if (h < 0.4) return '#4a564d';
       const n = noise(x * 0.04, z * 0.04);
-      if (slope > 0.52) {
-        return n > 0.5 ? '#635f55' : '#565349';
+      if (slope > 0.72) {
+        return n > 0.5 ? '#6a665c' : '#5c594f';
       }
-      const green = n > 0.55 ? '#3f5439' : n > 0.3 ? '#465c3d' : '#384b33';
+      const green = n > 0.55 ? '#4b6b3e' : n > 0.3 ? '#547447' : '#3f5c36';
       const urban = smoothstep(60, 10, Math.hypot(x - 20, z - 6));
       if (urban > 0.35 && n > 0.4) return '#4c4b45';
       return green;
@@ -102,7 +119,11 @@ export default {
 
     const hf = new Heightfield({ size: 1200, segments: 300, heightFn, colorFn });
     ctx.terrainSegments = hf.segments;
-    const terrainMat = ctx.mat('terrain', { color: '#ffffff', roughness: 0.97, metalness: 0.0 });
+    ctx.bindTerrain(hf);
+    const terrainMat = ctx.nightSurface('terrain', {
+      color: '#ffffff', roughness: 0.97, metalness: 0.0,
+      sheen: 0.34, nightLift: '#1c2734', nightLiftScale: 0.72,
+    });
     terrainMat.vertexColors = true;
     const terrain = hf.buildMesh(terrainMat);
     ctx.world.add(terrain);
@@ -124,22 +145,16 @@ export default {
       winA: '#d8ecff', winB: '#ffd9a8', floorH: 5.2, colW: 4.2, lit: 0.5,
       roughness: 0.26, metalness: 0.42, rim: 0.11, rimColor: '#b4d6ef',
     });
-    const podiumMat = ctx.mat('podium', { color: '#4a4843', roughness: 0.95 });
     const roofMat = ctx.mat('roof', { color: '#22262a', roughness: 0.92 });
     const stoneMat = ctx.mat('stone', { color: '#5a5952', roughness: 0.92 });
     const deckMat = ctx.mat('deck', { color: '#2a2d31', roughness: 0.78 });
     const metalMat = ctx.mat('metal', { color: '#9aa4ad', roughness: 0.35, metalness: 0.75 });
     const glowWarm = ctx.glow('glow-warm', '#ffb35a', 1, 2.6);
     const beaconMat = ctx.glow('beacon', '#ff3a2c', 1, 2.8);
-    const railGlow = ctx.glow('rail-glow', '#8fd7ff', 0.9, 2.4);
     const neonSign = ctx.glow('neon-sign', '#ff8a3d', 1, 2.2);
 
-    const podiumGeo = new THREE.BoxGeometry(1, 1, 1);
-    podiumGeo.translate(0, 0.5, 0);
-    const podiumBatch = ctx.instance('podium', podiumGeo, podiumMat);
     const unitGlow = new THREE.BoxGeometry(1, 1, 1);
     unitGlow.translate(0, 0.5, 0);
-    const eaveBatch = ctx.instance('eave', unitGlow, glowWarm);
     const antGeo = new THREE.BoxGeometry(1, 1, 1);
     antGeo.translate(0, 0.5, 0);
     const antBatch = ctx.instance('antenna', antGeo, metalMat);
@@ -148,24 +163,9 @@ export default {
 
     // ------- helper: place one building with a slope foundation -------
     const place = (x, z, w, d, h, color, material, batchKey, opts = {}) => {
-      const corners = [
-        [x - w / 2, z - d / 2], [x + w / 2, z - d / 2],
-        [x - w / 2, z + d / 2], [x + w / 2, z + d / 2],
-      ];
-      let minH = Infinity;
-      let maxH = -Infinity;
-      for (const [cx, cz] of corners) {
-        const ch = hf.heightAt(cx, cz);
-        if (ch < minH) minH = ch;
-        if (ch > maxH) maxH = ch;
-      }
-      const base = Math.max(maxH, hf.heightAt(x, z)) + 0.4;
-      const lift = base - minH;
-      if (lift > 2.4 && opts.foundation !== false) {
-        podiumBatch.add({
-          x, y: minH - 0.4, z, w: w * 0.92, h: lift + 0.4, d: d * 0.92, color: '#45443f',
-        });
-      }
+      // Sample the footprint and build a stone foundation down past the lowest
+      // corner; the exposed part becomes a retaining wall with a 0.6 m cap.
+      const base = ctx.foundation(x, z, w, d, { margin: 0.4 });
       ctx.addBuilding(batchKey, material, {
         x, y: base, z, w, h, d,
         color,
@@ -232,6 +232,42 @@ export default {
       }
     }
 
+    // ------- stepped river embankments -------
+    // Chongqing's river banks are stairs down to the water, not a smooth wall.
+    const stepMat = ctx.mat('river-step', { color: '#ffffff', roughness: 0.95 });
+    const stepBatch = ctx.instance('river-steps', unitGlow.clone(), stepMat);
+    const addBankSteps = (line, halfWidth) => {
+      for (let i = 0; i < line.length - 1; i++) {
+        const [ax, az] = line[i];
+        const [bx, bz] = line[i + 1];
+        const segLen = Math.hypot(bx - ax, bz - az);
+        const steps = Math.max(1, Math.round(segLen / 15));
+        for (let k = 0; k < steps; k++) {
+          const t = (k + 0.5) / steps;
+          const x = ax + (bx - ax) * t;
+          const z = az + (bz - az) * t;
+          const dx = bx - ax;
+          const dz = bz - az;
+          const len = Math.hypot(dx, dz) || 1;
+          const nx = dz / len;
+          const nz = -dx / len;
+          const rot = Math.atan2(dx, dz);
+          for (const side of [-1, 1]) {
+            for (let s = 0; s < 4; s++) {
+              const off = halfWidth + 0.4 + s * 1.15;
+              stepBatch.add({
+                x: x + nx * off * side, y: 1.35 - s * 0.32, z: z + nz * off * side,
+                w: 1.35, h: 0.3, d: segLen / steps + 0.3, rotY: rot,
+                color: s % 2 === 0 ? '#7b786e' : '#6c6a61',
+              });
+            }
+          }
+        }
+      }
+    };
+    addBankSteps(YANGTZE, halfYangtze);
+    addBankSteps(JIALING, halfJialing);
+
     const switchbacks = [
       [[-110, 116], [-60, 78], [20, 92], [78, 48], [20, 14], [72, -24], [12, -70], [58, -118], [-4, -156]],
       [[-96, -190], [-44, -150], [26, -176], [64, -112], [4, -82], [48, -24], [-18, 18], [-84, -26], [-60, -92]],
@@ -241,9 +277,10 @@ export default {
       addRoad(ctx, terrainPath(raw), { width: 8, lamps: true, lampSpacing: 21, divisions: 110, speed: 9 });
     }
 
-    // Elevated expressway through the hills.
+    // Elevated expressway through the hills, following the new ridge.
     const viaductRaw = [[-320, 46], [-190, 30], [-80, 58], [40, 44], [170, 66], [320, 92]];
-    const viaduct = addRoad(ctx, viaductRaw.map(([x, z]) => ({ x, y: 26, z })), {
+    const viaductPts = viaductRaw.map(([x, z]) => ({ x, z, y: hf.heightAt(x, z) + 16 }));
+    const viaduct = addRoad(ctx, viaductPts, {
       width: 13, divisions: 110, speed: 20, offset: 3.4, lamps: false,
     });
     for (let i = 6; i < viaduct.length - 6; i += 5) {
@@ -256,119 +293,305 @@ export default {
     addLampsAlong(ctx, viaduct, 30, '#ffd7a0', 8);
 
     // ------- river bridges -------
-    const buildCableBridge = (cx, z0, z1, baseY, pylonH) => {
-      const midZ = (z0 + z1) / 2;
-      ctx.box(deckMat, 14, 1.6, Math.abs(z1 - z0), cx, baseY, midZ);
-      ctx.box(stoneMat, 14, 1.2, Math.abs(z1 - z0), cx, baseY + 1.2, midZ);
-      const pylons = [z0 + (z1 - z0) * 0.33, z0 + (z1 - z0) * 0.67];
-      const cablePts = [];
-      for (let pi = 0; pi < 2; pi++) {
-        const pz = pylons[pi];
-        const topY = baseY + pylonH;
-        ctx.cylinder(stoneMat, 1.4, 2.2, pylonH, cx, baseY, pz, 8);
-        ctx.cylinder(stoneMat, 0.9, 1.2, pylonH * 0.55, cx - 8, baseY, pz, 6);
-        for (let k = 1; k <= 7; k++) {
-          const t = k / 8;
-          const dz = (z0 + (z1 - z0) * t) - pz;
-          cablePts.push(new THREE.Vector3(cx, topY, pz), new THREE.Vector3(cx, baseY + 1.2, pz + dz * 0.9));
-          cablePts.push(new THREE.Vector3(cx, topY, pz), new THREE.Vector3(cx, baseY + 1.2, pz - dz * 0.9));
-        }
-        ctx.lamp(cx, topY + 1.5, pz, '#ff4a4a', 1.4);
-      }
-      const cableGeo = new THREE.BufferGeometry().setFromPoints(cablePts);
-      const cables = new THREE.LineSegments(cableGeo, new THREE.LineBasicMaterial({
-        color: new THREE.Color('#dbe4ec'), transparent: true, opacity: 0.75,
-      }));
-      ctx.world.add(cables);
-      ctx.trafficPath(samplePath([{ x: cx, y: baseY + 2, z: z0 }, { x: cx, y: baseY + 2, z: midZ }, { x: cx, y: baseY + 2, z: z1 }], 40), {
-        speed: 16, offset: 4, count: 20,
+    // Solid cable stays: a dozen real cylinders per pylon instead of a dense
+    // line fan. They stay below the bloom threshold, so no white starburst at
+    // any camera distance.
+    const cableGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 6, 1);
+    const cableMat = ctx.mat('bridge-cable', {
+      color: '#ffffff', roughness: 0.55, metalness: 0.25,
+      emissive: '#161c22', emissiveIntensity: 1,
+    });
+    const cableBatch = ctx.instance('bridge-cables', cableGeo, cableMat);
+    const addCable = (ax, ay, az, bx, by, bz) => {
+      const a = new THREE.Vector3(ax, ay, az);
+      const b = new THREE.Vector3(bx, by, bz);
+      const dir = new THREE.Vector3().subVectors(b, a);
+      const len = dir.length();
+      if (len < 0.01) return;
+      const q = new THREE.Quaternion().setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0), dir.normalize()
+      );
+      cableBatch.add({
+        x: (ax + bx) / 2, y: (ay + by) / 2, z: (az + bz) / 2,
+        w: 0.36, h: len, d: 0.36, quaternion: q, color: '#c8d0d8',
       });
+    };
+
+    const buildCableBridge = (cx, z0, z1, deckY, pylonH) => {
+      const span = Math.abs(z1 - z0);
+      const midZ = (z0 + z1) / 2;
+      const deckH = 2.4;
+      // Solid box girder with side parapets.
+      ctx.box(deckMat, 13, deckH, span, cx, deckY - deckH, midZ);
+      for (const sx of [-1, 1]) {
+        ctx.box(stoneMat, 0.7, 1.4, span, cx + sx * 6.2, deckY, midZ);
+      }
+      // Piers standing in the river.
+      for (const f of [0.18, 0.5, 0.82]) {
+        const pz = z0 + span * f;
+        const bed = hf.heightAt(cx, pz);
+        const top = deckY - deckH;
+        if (top - bed > 2) ctx.box(stoneMat, 7.5, top - bed, 8.5, cx, bed, pz);
+      }
+      const beacons = [];
+      for (const f of [0.33, 0.67]) {
+        const pz = z0 + span * f;
+        const topY = deckY + pylonH;
+        for (const sx of [-1, 1]) {
+          ctx.box(stoneMat, 2.4, pylonH + 2, 2.4, cx + sx * 5.2, deckY - 2, pz);
+        }
+        ctx.box(stoneMat, 11.2, 2.0, 2.6, cx, topY - 5.2, pz);
+        ctx.box(stoneMat, 12.6, 1.1, 3.0, cx, topY - 0.7, pz);
+        // Twelve stays per pylon: three deck anchors on each side of each
+        // cable plane. A readable fan, not a starburst.
+        for (const sx of [-1, 1]) {
+          for (const side of [-1, 1]) {
+            for (let k = 1; k <= 3; k++) {
+              const anchorZ = pz + side * span * 0.085 * k;
+              addCable(cx + sx * 6.2, deckY + 0.2, anchorZ, cx + sx * 5.2, topY - 1.4, pz);
+            }
+          }
+        }
+        beacons.push({ x: cx, y: topY + 0.6, z: pz });
+      }
+      for (const b of beacons) ctx.lamp(b.x, b.y, b.z, '#ff6a5a', 0.9);
+      ctx.trafficPath(samplePath([
+        { x: cx, y: deckY + 0.4, z: z0 },
+        { x: cx, y: deckY + 0.4, z: midZ },
+        { x: cx, y: deckY + 0.4, z: z1 },
+      ], 40), { speed: 16, offset: 4, count: 20 });
     };
 
     buildCableBridge(146, 94, 214, 13, 52);
     buildCableBridge(-126, 24, 146, 12, 46);
 
-    // ------- 黄桷湾 style stacked interchange -------
-    const interchangeY = (x, z) => Math.max(10, hf.heightAt(x, z));
+    // ------- Huangjuewan-style stacked interchange -------
+    // Four concentric decks eight metres apart, crossed by three flyovers at
+    // in-between levels, plus two 270-degree spiral ramps. Columns stop at the
+    // deck above them and are skipped where they would pierce a lower deck.
     const icx = 158;
     const icz = 46;
-    const baseIC = interchangeY(icx, icz);
-    const buildRing = (radius, y, width, segments = 64) => {
+    const icRings = [
+      { radius: 34, layer: 0, width: 7 },
+      { radius: 50, layer: 1, width: 7 },
+      { radius: 66, layer: 2, width: 6.5 },
+      { radius: 24, layer: 3, width: 6 },
+    ];
+    const icStraights = [
+      { off: -30, yOff: 12, layer: 0 },
+      { off: 0, yOff: 20, layer: 1 },
+      { off: 30, yOff: 28, layer: 2 },
+    ];
+    let baseIC = -Infinity;
+    for (const ring of icRings) {
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2;
+        baseIC = Math.max(baseIC, hf.heightAt(icx + Math.cos(a) * ring.radius, icz + Math.sin(a) * ring.radius));
+      }
+    }
+    for (const s of icStraights) {
+      for (const dx of [-84, -42, 0, 42, 84]) {
+        baseIC = Math.max(baseIC, hf.heightAt(icx + dx, icz + s.off));
+      }
+    }
+    baseIC += 4;
+    const icY = (layer) => baseIC + 8 + layer * 8;
+    const icBox = new THREE.BoxGeometry(1, 1, 1);
+    icBox.translate(0, 0.5, 0);
+    const icDeckMats = [0, 1, 2, 3].map((i) => ctx.mat(`ic-deck-${i}`, {
+      color: ['#3b4249', '#4a525b', '#5a6470', '#6b7683'][i],
+      roughness: 0.56, metalness: 0.16,
+    }));
+    const icPierMat = ctx.mat('ic-pier', { color: '#ffffff', roughness: 0.92 });
+    const icPierBatch = ctx.instance('ic-piers', icBox, icPierMat);
+    const icDeckBatches = icDeckMats.map((m, i) => ctx.instance(`ic-deck-${i}`, icBox, m));
+
+    const pierBlocked = (x, z, deckY) => {
+      for (const ring of icRings) {
+        if (icY(ring.layer) >= deckY) continue;
+        if (Math.abs(Math.hypot(x - icx, z - icz) - ring.radius) < 4.2) return true;
+      }
+      for (const s of icStraights) {
+        if (baseIC + s.yOff >= deckY) continue;
+        if (Math.abs(z - (icz + s.off)) < 4.6 && Math.abs(x - icx) < 84) return true;
+      }
+      return false;
+    };
+    const addPier = (x, z, deckY) => {
+      const ground = hf.heightAt(x, z);
+      if (deckY - ground < 2.5 || pierBlocked(x, z, deckY)) return;
+      icPierBatch.add({ x, y: ground, z, w: 1.9, h: deckY - ground, d: 1.9, color: '#8d8f88' });
+      icPierBatch.add({ x, y: deckY - 0.6, z, w: 3.6, h: 0.6, d: 3.6, color: '#a5a69c' });
+    };
+
+    const addInterchangeRing = (ring) => {
+      const { radius, layer, width } = ring;
+      const y = icY(layer);
+      const batch = icDeckBatches[layer];
+      const segments = 72;
+      for (let i = 0; i < segments; i++) {
+        const a0 = (i / segments) * Math.PI * 2;
+        const a1 = ((i + 1) / segments) * Math.PI * 2;
+        const p0 = { x: icx + Math.cos(a0) * radius, z: icz + Math.sin(a0) * radius };
+        const p1 = { x: icx + Math.cos(a1) * radius, z: icz + Math.sin(a1) * radius };
+        const len = Math.hypot(p1.x - p0.x, p1.z - p0.z);
+        batch.add({
+          x: (p0.x + p1.x) / 2, y: y - 0.9, z: (p0.z + p1.z) / 2,
+          w: width, h: 0.9, d: len + 0.25,
+          rotY: Math.atan2(p1.x - p0.x, p1.z - p0.z), color: '#ffffff',
+        });
+      }
+      for (let i = 0; i < segments; i += 9) {
+        const a = (i / segments) * Math.PI * 2;
+        addPier(icx + Math.cos(a) * radius, icz + Math.sin(a) * radius, y - 0.9);
+      }
       const pts = [];
       for (let i = 0; i <= segments; i++) {
         const a = (i / segments) * Math.PI * 2;
-        pts.push({ x: icx + Math.cos(a) * radius, y, z: icz + Math.sin(a) * radius });
+        pts.push({ x: icx + Math.cos(a) * radius, y: y + 0.1, z: icz + Math.sin(a) * radius });
       }
-      const geo = ribbonGeometry(pts, width, 0.1);
-      const mesh = new THREE.Mesh(geo, deckMat);
-      ctx.world.add(mesh);
-      for (let i = 0; i < segments; i += 6) {
-        const p = pts[i];
-        const g = hf.heightAt(p.x, p.z);
-        if (y - g > 2) ctx.box(stoneMat, 1.8, y - g, 1.8, p.x, g, p.z);
+      ctx.trafficPath(pts, { speed: 11 + layer * 2, offset: 2.0, count: 14 });
+      for (let i = 0; i < segments; i += 8) {
+        const a = (i / segments) * Math.PI * 2;
+        ctx.lamp(icx + Math.cos(a) * radius, y + 1.3, icz + Math.sin(a) * radius, '#ffd8a0', 0.85);
       }
-      ctx.trafficPath(pts, { speed: 13, offset: 2.4, count: 16 });
     };
-    buildRing(30, baseIC + 8, 6);
-    buildRing(44, baseIC + 16, 6.5);
-    buildRing(24, baseIC + 27, 5.5);
-    // Straight flyovers crossing at different levels.
-    for (const [off, yOff] of [[-24, 12], [0, 21], [26, 30]]) {
-      const raw = [
-        { x: icx - 75, y: baseIC + yOff, z: icz + off - 12 },
-        { x: icx, y: baseIC + yOff, z: icz + off },
-        { x: icx + 75, y: baseIC + yOff, z: icz + off + 12 },
-      ];
-      const sampled = addRoad(ctx, raw, { width: 7, divisions: 40, speed: 15, offset: 2.5, lamps: true, lampSpacing: 18 });
-      for (let i = 8; i < sampled.length - 8; i += 8) {
-        const p = sampled[i];
-        const g = hf.heightAt(p.x, p.z);
-        if (p.y - g > 2) ctx.box(stoneMat, 2, p.y - g, 2, p.x, g, p.z);
+    for (const ring of icRings) addInterchangeRing(ring);
+
+    for (const s of icStraights) {
+      const y = baseIC + s.yOff;
+      const z = icz + s.off;
+      icDeckBatches[s.layer].add({
+        x: icx, y: y - 0.9, z, w: 168, h: 0.9, d: 7, color: '#ffffff',
+      });
+      for (let dx = -78; dx <= 78; dx += 26) addPier(icx + dx, z, y - 0.9);
+      ctx.trafficPath([
+        { x: icx - 84, y: y + 0.1, z },
+        { x: icx, y: y + 0.1, z },
+        { x: icx + 84, y: y + 0.1, z },
+      ], { speed: 14, offset: 2.2, count: 16 });
+      for (let dx = -78; dx <= 78; dx += 20) {
+        ctx.lamp(icx + dx, y + 1.3, z + 3.2, '#ffd8a0', 0.9);
       }
     }
-    ctx.label('黄桷湾立交', '五层立交 · 8D 魔幻', icx, baseIC + 42, icz);
+
+    const addSpiral = (fromLayer, radius, startAngle) => {
+      const y0 = icY(fromLayer);
+      const y1 = icY(fromLayer + 1);
+      const pts = [];
+      const segs = 54;
+      for (let i = 0; i <= segs; i++) {
+        const t = i / segs;
+        const a = startAngle + t * Math.PI * 2 * 0.75;
+        pts.push({ x: icx + Math.cos(a) * radius, y: y0 + (y1 - y0) * t, z: icz + Math.sin(a) * radius });
+      }
+      const geo = ribbonGeometry(pts, 5.2, 0.08);
+      ctx.world.add(new THREE.Mesh(geo, icDeckMats[fromLayer + 1]));
+      for (let i = 4; i <= segs; i += 9) {
+        const p = pts[i];
+        addPier(p.x, p.z, p.y - 0.5);
+      }
+      ctx.trafficPath(pts, { speed: 9, offset: 1.7, count: 12 });
+    };
+    addSpiral(0, 42, 0.35);
+    addSpiral(1, 58, 2.35);
+    ctx.label('黄桷湾立交', '四层叠环 · 8D 魔幻', icx, icY(3) + 18, icz);
 
     // ------- Hongyadong stilt-house tiers -------
     const hongX = 98;
     const hongZ = 92;
     const hongBase = hf.heightAt(hongX, hongZ);
+    const hongWall = ctx.facade('hongya-wall', {
+      winA: '#ffd9a0', winB: '#ffbf7a', floorH: 3.4, colW: 3.4, lit: 0.35,
+      roughness: 0.92, metalness: 0.0, glow: 0.9,
+    });
+    const hongWood = ctx.mat('hongya-wood', { color: '#ffffff', roughness: 0.88, metalness: 0.02 });
+    const hongRoof = ctx.mat('hongya-roof', { color: '#2c3942', roughness: 0.7, metalness: 0.14 });
+    const hongLantern = ctx.glow('hongya-lantern', '#ffb15e', 0.95, 2.2);
+    const hongWoodBatch = ctx.instance('hongya-wood', unitGlow.clone(), hongWood);
+    const hongRoofBatch = ctx.instance('hongya-roofs', hipRoofGeometry(1, 0.17, 0.24), hongRoof);
+    const hongStiltGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 6, 1);
+    hongStiltGeo.translate(0, 0.5, 0);
+    const hongStiltBatch = ctx.instance('hongya-stilts', hongStiltGeo, hongWood);
+    const hongLanternBatch = ctx.instance('hongya-lanterns', unitGlow.clone(), hongLantern);
+    const wood = (x, y, z, w, h, d, rotZ = 0) => hongWoodBatch.add({
+      x, y, z, w, h, d, rotZ, color: '#43301f',
+    });
+
+    let hongRowY = hongBase + 1.4;
     for (let row = 0; row < 5; row++) {
+      const rowZ = hongZ - row * 10.2;
+      const groundY = hf.heightAt(hongX, rowZ);
+      // Each row steps up and back, sitting on its own stone terrace.
+      const rowY = Math.max(groundY + 2.0, hongRowY + 3.2);
+      hongRowY = rowY;
+      ctx.foundation(hongX, rowZ, 76, 12, {
+        base: rowY, margin: 0, color: '#5f5a4e', capColor: '#867f70',
+      });
+      wood(hongX, rowY - 0.7, rowZ + 6.0, 76, 0.7, 0.5); // deck fascia
       for (let col = 0; col < 7; col++) {
-        const x = hongX - 30 + col * 10.5;
-        const z = hongZ - row * 9.5;
-        const groundY = hf.heightAt(x, z);
-        const w = rng.range(8.2, 10);
-        const d = rng.range(7.4, 9);
-        const h = rng.range(13, 20) + row * 2.2;
-        ctx.addBuilding('old', old, {
-          x, y: groundY + 0.6, z, w, h, d,
-          color: rng.pick(['#8c7457', '#967d5f', '#7d674d']),
-          lit: 0.95, seed: rng.next(), variant: rng.next(),
-          // These tiers carry their own gable roof and eave details.
+        const hx = hongX - 28.8 + col * 9.6;
+        const w = 7.8;
+        const d = 7.2;
+        const h = 9.6 + (col % 2) * 1.1 + row * 0.25;
+        const hz = rowZ + 4.4;
+        ctx.addBuilding('hongya-walls', hongWall, {
+          x: hx, y: rowY, z: hz, w, h, d,
+          color: rng.pick(['#efe6d6', '#e7dccb', '#f3ecdf']),
+          lit: 0.4, seed: rng.next(), variant: rng.next(),
           roof: false,
         });
-        // Warm eaves at every floor, facing the river.
-        const floors = Math.floor(h / 3.3);
-        for (let f = 0; f < floors; f += 1) {
-          eaveBatch.add({
-            x, y: groundY + 3.3 * f + 2.9, z: z + d / 2 + 0.32,
-            w: w * 0.96, h: 0.28, d: 0.34, color: '#ffad54',
-          });
-        }
-        // Red lanterns at the front corners.
+        // Timber frame: corner posts, floor beams and a balcony per floor.
         for (const sx of [-1, 1]) {
-          eaveBatch.add({
-            x: x + sx * w * 0.42, y: groundY + h * 0.72, z: z + d / 2 + 0.5,
-            w: 0.5, h: 0.5, d: 0.5, color: '#ff5a2a',
+          for (const sz of [-1, 1]) {
+            wood(hx + sx * (w / 2 - 0.2), rowY, hz + sz * (d / 2 - 0.2), 0.32, h, 0.32);
+          }
+        }
+        const floors = Math.max(2, Math.floor(h / 3.1));
+        for (let f = 0; f <= floors; f++) {
+          const by = rowY + Math.min(h, f * 3.1);
+          wood(hx, by, hz + d / 2 + 0.16, w, 0.26, 0.3);
+          if (f > 0 && f < floors) {
+            wood(hx, by, hz + d / 2 + 0.75, w * 0.96, 0.18, 1.4); // balcony deck
+            wood(hx, by + 0.9, hz + d / 2 + 1.38, w * 0.9, 0.16, 0.16); // handrail
+            for (let b = -2; b <= 2; b++) {
+              wood(hx + b * w * 0.19, by, hz + d / 2 + 1.38, 0.12, 0.9, 0.12);
+            }
+          }
+        }
+        // Stilts down to the slope below the terrace.
+        for (const sx of [-1, -0.34, 0.34, 1]) {
+          const px = hx + sx * (w / 2 - 0.5);
+          const pz = hz + d / 2 + 0.55;
+          const gy = hf.heightAt(px, pz);
+          const len = rowY - gy + 0.5;
+          if (len > 1.2) {
+            hongStiltBatch.add({ x: px, y: gy, z: pz, w: 0.3, h: len, d: 0.3, color: '#4a3626' });
+          }
+        }
+        // Hip roof with a 1.5 m eave and an upturned ridge.
+        const roofY = rowY + h;
+        hongRoofBatch.add({ x: hx, y: roofY, z: hz, w, h: 2.9, d, color: '#ffffff' });
+        wood(hx, roofY, hz, w * 1.16, 0.22, d * 1.16); // eave board
+        wood(hx, roofY + 2.82, hz, w * 0.56, 0.32, 0.42); // ridge
+        for (const sx of [-1, 1]) {
+          wood(hx + sx * w * 0.3, roofY + 2.96, hz, 1.7, 0.2, 0.34, sx * 0.34);
+        }
+        // Two warm lanterns under the eave instead of a strip per floor.
+        for (const sx of [-1, 1]) {
+          hongLanternBatch.add({
+            x: hx + sx * w * 0.3, y: roofY - 0.55, z: hz + d / 2 + 0.4,
+            w: 0.42, h: 0.42, d: 0.42, color: '#ffffff',
           });
         }
-        const roofY = groundY + 0.6 + h;
-        const roof = new THREE.Mesh(gableRoofGeometry(0.9, 0.1), roofMat);
-        roof.scale.set(w * 1.16, 3.6, d * 1.16);
-        roof.position.set(x, roofY, z);
-        ctx.world.add(roof);
-        // Glowing roof ridge line.
-        ctx.box(glowWarm, w * 1.04, 0.16, 0.3, x, roofY + 3.15, z);
+      }
+      // A few real warm point lights wash the lower retaining walls.
+      if (row < 2) {
+        for (const col of [1, 5]) {
+          const light = new THREE.PointLight('#ffb060', 22, 24, 2);
+          light.position.set(hongX - 28.8 + col * 9.6, rowY + 3.6, rowZ + 5.6);
+          ctx.world.add(light);
+        }
       }
     }
     // A vertical neon sign facing the river.
@@ -382,80 +605,142 @@ export default {
     });
     signMat.userData.disposeOnClear = true;
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(8, 26), signMat);
-    sign.position.set(hongX + 40, hongBase + 26, hongZ + 6);
+    sign.position.set(hongX + 42, hongBase + 20, hongZ + 8);
     sign.rotation.y = Math.PI;
     ctx.world.add(sign);
-    ctx.label('洪崖洞', '吊脚楼 · 千与千寻', hongX, hongBase + 46, hongZ + 4);
+    ctx.label('洪崖洞', '吊脚楼 · 千与千寻', hongX, hongRowY + 12, hongZ + 4);
+    // Keep the landmark camera framed against the rebuilt tiers.
+    ctx.style.views[1].pos = [hongX - 68, hongRowY + 26, hongZ + 120];
+    ctx.style.views[1].target = [hongX, hongRowY - 6, hongZ];
 
     // ------- Liziba monorail through a building -------
     const monX = -26;
     const monZ = 8;
-    const monBase = hf.heightAt(monX, monZ) + 1;
-    const trackY = monBase + 24;
-    // Lower and upper halves with a central opening for the train.
+    const monBase = ctx.foundation(monX, monZ, 28, 15, { margin: 0.6 });
+    // 5.6 m wide / 12 m tall opening: 0.8 m clear on each side of the 4 m car.
+    const openW = 5.6;
+    const openH = 12;
+    const lowerH = 18;
+    const upperY = monBase + lowerH + openH;
+    const trackY = monBase + lowerH + 4.0;
     ctx.addBuilding('res', res, {
-      x: monX, y: monBase, z: monZ, w: 28, h: 19, d: 15,
-      color: '#b8aa96', lit: 0.85, seed: rng.next(), variant: 0.6,
-      roof: false,
+      x: monX, y: monBase, z: monZ, w: 28, h: lowerH, d: 15,
+      color: '#b8aa96', lit: 0.85, seed: rng.next(), variant: 0.6, roof: false,
     });
     ctx.addBuilding('res', res, {
-      x: monX, y: monBase + 28, z: monZ, w: 28, h: 22, d: 15,
-      color: '#b8aa96', lit: 0.85, seed: rng.next(), variant: 0.6,
-      roof: false,
+      x: monX, y: upperY, z: monZ, w: 28, h: 20, d: 15,
+      color: '#b8aa96', lit: 0.85, seed: rng.next(), variant: 0.6, roof: false,
     });
-    ctx.box(stoneMat, 5.4, 9, 15, monX - 11.2, monBase + 19, monZ);
-    ctx.box(stoneMat, 5.4, 9, 15, monX + 11.2, monBase + 19, monZ);
+    // Side walls framing the opening.
+    const sideW = (28 - openW) / 2;
+    for (const sx of [-1, 1]) {
+      ctx.box(stoneMat, sideW, openH, 15, monX + sx * (openW / 2 + sideW / 2), monBase + lowerH, monZ);
+    }
+    // Concrete trim around both portal faces.
+    const trimMat = ctx.mat('portal-trim', { color: '#b6b2a8', roughness: 0.9 });
+    for (const dz of [-1, 1]) {
+      const zFace = monZ + dz * 7.55;
+      ctx.box(trimMat, openW + 1.6, 0.6, 0.5, monX, monBase + lowerH + openH - 0.2, zFace);
+      ctx.box(trimMat, openW + 1.6, 0.6, 0.5, monX, monBase + lowerH + 0.2, zFace);
+      for (const sx of [-1, 1]) {
+        ctx.box(trimMat, 0.5, openH, 0.5, monX + sx * (openW / 2 + 0.25), monBase + lowerH + 0.5, zFace);
+      }
+    }
     // Roof + stair tower.
-    ctx.box(roofMat, 29.4, 1.4, 16.4, monX, monBase + 50, monZ);
-    ctx.box(stoneMat, 4, 3, 4, monX - 8, monBase + 51.4, monZ + 3);
+    ctx.box(roofMat, 29.4, 1.4, 16.4, monX, upperY + 20, monZ);
+    ctx.box(stoneMat, 4, 3, 4, monX - 8, upperY + 21.4, monZ + 3);
 
     const trackPoints = [];
     for (let z = -170; z <= 120; z += 10) {
       trackPoints.push({ x: monX, y: trackY, z });
     }
-    const trackGeo = ribbonGeometry(samplePath(trackPoints, 90), 4.6, 0.12);
-    ctx.world.add(new THREE.Mesh(trackGeo, deckMat));
-    // Guideway rails glow.
-    for (const off of [-1.7, 1.7]) {
-      const pts = trackPoints.map((p) => ({ ...p, x: p.x + off, y: p.y + 0.18 }));
-      ctx.world.add(new THREE.Mesh(ribbonGeometry(samplePath(pts, 90), 0.18, 0.05), railGlow));
+    // Solid box-girder guideway: 2.6 m wide x 1.8 m tall, not a flat ribbon.
+    const guideSamples = samplePath(trackPoints, 120);
+    const guideMat = ctx.mat('guideway', { color: '#ffffff', roughness: 0.78, metalness: 0.08 });
+    const guideGeo = new THREE.BoxGeometry(1, 1, 1);
+    guideGeo.translate(0, 0.5, 0);
+    const guideBatch = ctx.instance('guideway', guideGeo, guideMat);
+    for (let i = 0; i < guideSamples.length - 1; i++) {
+      const a = guideSamples[i];
+      const b = guideSamples[i + 1];
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      const len = Math.hypot(dx, dz) + 0.3;
+      guideBatch.add({
+        x: (a.x + b.x) / 2, y: trackY, z: (a.z + b.z) / 2,
+        w: 2.6, h: 1.8, d: len, rotY: Math.atan2(dx, dz), color: '#a2a39b',
+      });
     }
-    // Pillars.
-    for (let i = 4; i < trackPoints.length - 4; i += 3) {
-      const p = trackPoints[i];
-      const g = hf.heightAt(p.x, p.z);
-      if (p.y - g > 2) ctx.box(stoneMat, 2.2, p.y - g, 2.2, p.x, g, p.z);
+    // Piers every 18 m with a cap beam under the girder.
+    const pierMat = ctx.mat('pier', { color: '#ffffff', roughness: 0.9 });
+    const pierBatch = ctx.instance('guide-piers', guideGeo.clone(), pierMat);
+    let pierRun = 0;
+    for (let i = 1; i < guideSamples.length; i++) {
+      pierRun += guideSamples[i].distanceTo(guideSamples[i - 1]);
+      if (pierRun < 18) continue;
+      pierRun = 0;
+      const p = guideSamples[i];
+      const ground = hf.heightAt(p.x, p.z);
+      if (trackY - ground < 2.5) continue;
+      pierBatch.add({ x: p.x, y: ground, z: p.z, w: 2.4, h: trackY - ground, d: 2.4, color: '#8d8f88' });
+      pierBatch.add({ x: p.x, y: trackY - 0.7, z: p.z, w: 4.4, h: 0.7, d: 4.4, color: '#a8a99f' });
     }
     ctx.trafficPath(trackPoints, { speed: 22, offset: 0.5, count: 10, color: '#bfe8ff' });
 
-    // Train — three lit carriages moving along the guideway.
-    const trainCurve = new THREE.CatmullRomCurve3(trackPoints.map((p) => new THREE.Vector3(p.x, p.y + 1.6, p.z)));
-    const trainMat = ctx.mat('train', { color: '#e2ebf0', roughness: 0.3, metalness: 0.55 });
-    const trainGlow = ctx.glow('train-glow', '#bfe9ff', 0.95, 2.6);
+    // Train: three carriages with glazing, doors, roof units and headlights.
+    const trainCurve = new THREE.CatmullRomCurve3(trackPoints.map((p) => new THREE.Vector3(p.x, p.y + 1.8, p.z)));
+    const trainMat = ctx.mat('train-body', { color: '#dfe8ec', roughness: 0.35, metalness: 0.4 });
+    const trainGlass = ctx.mat('train-glass', {
+      color: '#1e2e3a', roughness: 0.2, metalness: 0.35,
+      emissive: '#2b5a74', emissiveIntensity: 0.7,
+    });
+    const headMat = ctx.glow('train-head', '#eaffff', 1, 2.0);
+    const tailMat = ctx.glow('train-tail', '#ff4a3a', 0.9, 1.8);
     const cars = [];
     for (let i = 0; i < 3; i++) {
       const g = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.BoxGeometry(4, 3.4, 13), trainMat);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(4, 3.4, 12.6), trainMat);
       body.position.y = 1.7;
       g.add(body);
-      const strip = new THREE.Mesh(new THREE.BoxGeometry(4.08, 0.8, 11.4), trainGlow);
-      strip.position.y = 2.4;
-      g.add(strip);
+      for (const side of [-1, 1]) {
+        const win = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 9.8), trainGlass);
+        win.position.set(side * 2.04, 2.35, 0);
+        g.add(win);
+        const door = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.2, 2.6), trainGlass);
+        door.position.set(side * 2.05, 1.2, -2.2);
+        g.add(door);
+      }
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.6, 4.2), trainMat);
+      roof.position.y = 3.5;
+      g.add(roof);
+      if (i === 0) {
+        const nose = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.8, 1.2), trainMat);
+        nose.position.set(0, 1.5, 6.8);
+        g.add(nose);
+        for (const sx of [-1, 1]) {
+          const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6), headMat);
+          lamp.position.set(sx * 1.1, 1.7, 7.35);
+          g.add(lamp);
+        }
+      }
       if (i === 2) {
-        const head = new THREE.Mesh(new THREE.SphereGeometry(0.55, 8, 6), ctx.glow('train-head', '#e8f8ff', 1, 3));
-        head.position.set(0, 2.2, 6.4);
-        g.add(head);
+        for (const sx of [-1, 1]) {
+          const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.35, 0.2), tailMat);
+          lamp.position.set(sx * 1.2, 1.9, -6.35);
+          g.add(lamp);
+        }
       }
       ctx.world.add(g);
       cars.push(g);
     }
-    let trainT = 0.9;
+    const trainState = { t: 0.9 };
+    ctx.trainState = trainState;
     const tmpPoint = new THREE.Vector3();
     const tmpTangent = new THREE.Vector3();
     ctx.ticker((elapsed, dt) => {
-      trainT = (trainT + dt * 0.011) % 1;
+      trainState.t = (trainState.t + dt * 0.011) % 1;
       for (let i = 0; i < cars.length; i++) {
-        const t = (trainT - i * 0.012 + 1) % 1;
+        const t = (trainState.t - i * 0.012 + 1) % 1;
         const p = trainCurve.getPointAt(t, tmpPoint);
         const tan = trainCurve.getTangentAt(t, tmpTangent);
         cars[i].position.copy(p);
@@ -469,17 +754,23 @@ export default {
       font: '600 62px "Microsoft YaHei", "PingFang SC", sans-serif',
     }));
     const stationMat = new THREE.MeshBasicMaterial({ map: stationTex, transparent: true, side: THREE.DoubleSide });
-    const station = new THREE.Mesh(new THREE.PlaneGeometry(13, 4.9), stationMat);
-    station.position.set(monX, trackY + 6.2, monZ + 8.2);
+    const station = new THREE.Mesh(new THREE.PlaneGeometry(9, 3.4), stationMat);
+    station.position.set(monX, trackY + 10.6, monZ + 7.8);
     ctx.world.add(station);
-    ctx.label('李子坝', '轻轨穿楼 · 2 号线', monX, trackY + 12, monZ);
+    ctx.label('李子坝', '轻轨穿楼 · 2 号线', monX, monBase + 55, monZ);
+    // The portal is best read from the cleared plaza, straight on.
+    ctx.style.views[2].pos = [monX, trackY + 9, monZ + 38];
+    ctx.style.views[2].target = [monX, trackY + 1, monZ];
 
     // ------- Raffles City leaning towers -------
     const rfX = 16;
     const rfZ = 78;
-    const rfBase = hf.heightAt(rfX, rfZ) + 1;
+    const rfBase = ctx.foundation(rfX, rfZ, 44, 30, { margin: 0.6, color: '#3f444a' });
     const rfGlass = ctx.mat('raffles', { color: '#6f8fa8', roughness: 0.28, metalness: 0.45 });
-    const rfGlow = ctx.glow('raffles-edge', '#9fd8ff', 0.7, 1.8);
+    const rfEdge = ctx.mat('raffles-edge', {
+      color: '#8794a0', roughness: 0.4, metalness: 0.5,
+      emissive: '#1d3348', emissiveIntensity: 1,
+    });
     const rfColumns = [[-16, 0], [0, -4], [16, 0], [0, 16]];
     for (let ti = 0; ti < 4; ti++) {
       const [ox, oz] = rfColumns[ti];
@@ -500,8 +791,9 @@ export default {
         });
       }
       ctx.lamp(px, rfBase + segs * segH + 2, pz, '#9fd8ff', 1.2);
-      // Vertical light edge.
-      ctx.box(rfGlow, 0.5, segs * segH, 0.5, px + 5, rfBase, pz);
+      // Vertical edge trim: a solid, dim metal strip rather than a sub-pixel
+      // glow line that bloom would smear into a glitch.
+      ctx.box(rfEdge, 0.6, segs * segH, 0.6, px + 5, rfBase, pz);
     }
     const skybridgeY = rfBase + 52;
     ctx.box(rfGlass, 20, 4.4, 6, rfX, skybridgeY, rfZ - 2);
@@ -517,14 +809,13 @@ export default {
       { x: 64, z: 54, w: 12, d: 12, h: 84 },
     ];
     for (const t of cbdTowers) {
-      const gy = hf.heightAt(t.x, t.z);
-      place(t.x, t.z, t.w, t.d, t.h, '#8aa6b8', mega, 'mega', { foundation: true, lit: 0.55 });
-      ctx.box(glowWarm, t.w + 1, 0.55, t.d + 1, t.x, gy + t.h, t.z);
+      const top = place(t.x, t.z, t.w, t.d, t.h, '#8aa6b8', mega, 'mega', { lit: 0.55 });
+      ctx.box(glowWarm, t.w + 1, 0.55, t.d + 1, t.x, top, t.z);
     }
     // Jiefangbei monument.
     const jx = 30;
     const jz = 20;
-    const jy = hf.heightAt(jx, jz);
+    const jy = ctx.foundation(jx, jz, 7.5, 7.5, { margin: 0.3 });
     ctx.box(stoneMat, 5, 27, 5, jx, jy, jz);
     ctx.box(stoneMat, 7.5, 2.5, 7.5, jx, jy + 27, jz);
     ctx.box(neonSign, 7.6, 0.6, 7.6, jx, jy + 29.6, jz);
@@ -537,7 +828,7 @@ export default {
     const east = 260;
     const spacing = 12.5 / Math.sqrt(Math.max(0.25, params.density));
     const reserved = [
-      [98, 92, 44], [-26, 8, 24], [158, 46, 58], [16, 78, 32], [30, 20, 26], [146, 150, 40], [-126, 80, 30],
+      [98, 92, 44], [-26, 8, 40], [158, 46, 92], [16, 78, 32], [30, 20, 26], [146, 150, 40], [-126, 80, 30],
     ];
     const isReserved = (x, z, r = 0) => reserved.some(([rx, rz, rr]) => Math.hypot(x - rx, z - rz) < rr + r);
 
@@ -548,18 +839,24 @@ export default {
         const jx2 = x + rng.range(-spacing * 0.32, spacing * 0.32);
         const jz2 = z + rng.range(-spacing * 0.32, spacing * 0.32);
         const gh = hf.heightAt(jx2, jz2);
-        if (gh < 1.2) continue;
-        if (hf.slopeAt(jx2, jz2) > 0.62) continue;
-        const perCell = rng.next() < 0.55 ? 2 : 1;
+        const slope = hf.slopeAt(jx2, jz2);
+        if (gh < 1.2 || slope > 0.62) continue;
+        // Elevation zoning: the riverfront keeps the dense low old town, the
+        // upper ridges are sparser but allow newer high-rise clusters.
+        const lowTown = gh < 13;
+        const hillTop = gh > 34;
+        const perCell = rng.next() < (lowTown ? 0.72 : hillTop ? 0.42 : 0.55) ? 2 : 1;
         for (let k = 0; k < perCell; k++) {
           const bx = jx2 + rng.range(-4.5, 4.5);
           const bz = jz2 + rng.range(-4.5, 4.5);
           const gh2 = hf.heightAt(bx, bz);
-          if (gh2 < 1.2 || hf.slopeAt(bx, bz) > 0.66) continue;
+          const slope2 = hf.slopeAt(bx, bz);
+          if (gh2 < 1.2 || slope2 > 0.66) continue;
           const dc = Math.hypot(bx - 20, bz - 6);
           const cbd = Math.exp(-(dc * dc) / (2 * 105 * 105));
           const kind = pickKind();
           const hv = 1 + (rng.next() - 0.5) * params.heightVar * 1.5;
+          const zone = gh2 < 13 ? 0.62 : gh2 > 34 ? 1.16 : 1.0;
           let h;
           let w;
           let d;
@@ -595,6 +892,11 @@ export default {
             d = rng.range(8, 14);
             h = clamp(rng.range(16, 48) * hv * (0.7 + params.avgHeight * 0.5), 8, 80);
           }
+          h *= zone;
+          // A 20-storey tower perched on a steep slope reads as a mistake.
+          if (slope2 > 0.5) h = Math.min(h, 24);
+          else if (slope2 > 0.38) h = Math.min(h, 48);
+          if (lowTown) h = Math.min(h, 34);
           place(bx, bz, w, d, h, color, material, key);
         }
       }
@@ -667,21 +969,31 @@ export default {
       ctx.tree(x, gh, z, rng.range(1.0, 1.9), rng.chance(0.5) ? 'pine' : 'round', '#3f5c3a');
     }
 
-    // Boats on the Yangtze.
-    const boatPath = [[-260, 156], [-100, 150], [60, 158], [260, 172]].map(([x, z]) => new THREE.Vector3(x, 2.6, z));
+    // Boats on the Yangtze: hulls sit in the water, with cabins and running lights.
+    const boatPath = [[-260, 156], [-100, 150], [60, 158], [260, 172]].map(([x, z]) => new THREE.Vector3(x, 0.3, z));
     const boatCurve = new THREE.CatmullRomCurve3(boatPath);
     const boatMat = ctx.mat('boat', { color: '#5a6066', roughness: 0.7 });
+    const boatDark = ctx.mat('boat-dark', { color: '#2f353b', roughness: 0.75 });
+    const boatGlass = ctx.mat('boat-glass', { color: '#20303a', roughness: 0.25, metalness: 0.3, emissive: '#2a4a60', emissiveIntensity: 0.4 });
     const boatGlow = ctx.glow('boat-glow', '#ffd28a', 1, 2.8);
     const boats = [];
     for (let i = 0; i < 5; i++) {
       const g = new THREE.Group();
-      const hull = new THREE.Mesh(new THREE.BoxGeometry(10, 2.2, 4), boatMat);
+      const hull = new THREE.Mesh(new THREE.BoxGeometry(9, 1.5, 3.2), boatMat);
+      hull.position.y = 0.75;
       g.add(hull);
-      const cabin = new THREE.Mesh(new THREE.BoxGeometry(5, 2.4, 3.2), boatMat);
-      cabin.position.y = 1.9;
+      const bow = new THREE.Mesh(new THREE.ConeGeometry(1.6, 2.6, 4), boatMat);
+      bow.position.set(0, 0.75, 5.4);
+      bow.rotation.x = Math.PI / 2;
+      g.add(bow);
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(4.6, 1.9, 2.9), boatDark);
+      cabin.position.set(-0.4, 2.3, 0);
       g.add(cabin);
+      const windows = new THREE.Mesh(new THREE.BoxGeometry(4.7, 0.65, 2.95), boatGlass);
+      windows.position.set(-0.4, 2.5, 0);
+      g.add(windows);
       const light = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), boatGlow);
-      light.position.set(4, 1.6, 0);
+      light.position.set(4, 1.5, 0);
       g.add(light);
       ctx.world.add(g);
       boats.push({ g, off: rng.next() });

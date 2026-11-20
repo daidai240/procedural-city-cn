@@ -241,19 +241,19 @@ export function createLedScreenMaterial(colorA = '#ff2bd6', colorB = '#00e5ff') 
 
       void main() {
         vec2 uv = vUv;
-        vec2 grid = vec2(16.0, 22.0);
+        // Low-frequency blocks: big cells, slow vertical drift. High-frequency
+        // noise read as a broken screen at any distance.
+        vec2 grid = vec2(6.0, 8.0);
         vec2 cell = floor(uv * grid);
         vec2 f = fract(uv * grid);
-        float block = step(0.16, f.x) * step(f.x, 0.84) * step(0.14, f.y) * step(f.y, 0.86);
-        float scroll = fract(cell.y / grid.y * 2.0 + uTime * 0.16);
-        float glyph = hash(cell + floor(uTime * 0.7));
-        float on = step(0.52, glyph) * step(0.3, scroll);
-        vec3 col = mix(uA, uB, hash(cell * 1.7));
-        // horizontal scan band
-        float scan = smoothstep(0.0, 0.1, abs(fract(uv.y * 0.6 - uTime * 0.12) - 0.5) - 0.38);
-        col *= 0.55 + 0.45 * scan;
+        float block = smoothstep(0.08, 0.18, f.x) * (1.0 - smoothstep(0.82, 0.92, f.x))
+                    * smoothstep(0.1, 0.2, f.y) * (1.0 - smoothstep(0.8, 0.9, f.y));
+        float band = 0.45 + 0.55 * smoothstep(-0.2, 0.4, sin(uv.y * 3.0 + uTime * 0.35));
+        float glyph = smoothstep(0.3, 0.75, hash(cell + floor(uTime * 0.15)));
+        float on = glyph * band;
+        vec3 col = mix(uA, uB, smoothstep(0.2, 0.8, hash(cell * 1.37 + 0.5)));
         float glow = block * on;
-        gl_FragColor = vec4(col * glow * (1.4 + uNight * 1.8), 1.0);
+        gl_FragColor = vec4(col * glow * (0.5 + uNight * 0.5), 1.0);
       }
     `,
   });

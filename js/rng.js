@@ -121,5 +121,13 @@ export function easeInOutCubic(t) {
 }
 
 export function pickSeed() {
-  return Math.floor(Math.random() * 90000000) + 10000000;
+  // The "new city" action is the one place that must draw fresh entropy, but
+  // the project rule is no Math.random(): use the platform CSPRNG and fall
+  // back to the clock only if the API is unavailable.
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    return 10000000 + (buf[0] % 90000000);
+  }
+  return 10000000 + (Math.floor(performance.now() * 1000) % 90000000);
 }

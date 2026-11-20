@@ -3,7 +3,8 @@ import { samplePath } from './geom.js';
 
 // Moving headlights / tail lights along generated road and rail paths.
 export class TrafficSystem {
-  constructor() {
+  constructor(rng = null) {
+    this.rng = rng;
     this.paths = [];
     this.points = null;
     this.positions = null;
@@ -33,19 +34,22 @@ export class TrafficSystem {
   }
 
   build() {
-    const rand = (a, b) => a + Math.random() * (b - a);
+    // Deterministic particle layout: reuse the city RNG instead of Math.random()
+    // so the same seed reproduces the same traffic, not just the same buildings.
+    const next = () => (this.rng ? this.rng.next() : 0.5);
+    const rand = (a, b) => a + next() * (b - a);
     this.particles = [];
     for (let pi = 0; pi < this.paths.length; pi++) {
       const path = this.paths[pi];
       for (let i = 0; i < path.count; i++) {
         this.particles.push({
           path,
-          s: Math.random() * path.total,
+          s: next() * path.total,
           speed: path.speed * rand(0.65, 1.35),
-          side: (Math.random() < 0.5 ? -1 : 1) * path.offset * rand(0.5, 1.1),
+          side: (next() < 0.5 ? -1 : 1) * path.offset * rand(0.5, 1.1),
           color: path.color
             ? new THREE.Color(path.color)
-            : (Math.random() < 0.66 ? new THREE.Color('#ffe4b0') : new THREE.Color('#ff4a3d')),
+            : (next() < 0.66 ? new THREE.Color('#ffe4b0') : new THREE.Color('#ff4a3d')),
           brightness: rand(0.7, 1.3),
         });
       }

@@ -11,16 +11,16 @@ const PALETTE = {
     waterDeep: '#263a46', waterShallow: '#4d6f7c', sunIntensity: 1.8, hemiIntensity: 0.8,
   },
   dusk: {
-    skyTop: '#2f2a62', skyHorizon: '#ff6f9a', skyBottom: '#4a3f66', sunColor: '#ffb080',
-    fogColor: '#8a5f82', hemiSky: '#d98fc0', hemiGround: '#332b38', horizonGlow: '#d92f8a',
-    waterDeep: '#231f3a', waterShallow: '#4e3f63', sunIntensity: 1.15, hemiIntensity: 0.6,
+    skyTop: '#16202e', skyHorizon: '#8a5a72', skyBottom: '#241f2e', sunColor: '#ffb080',
+    fogColor: '#3a3648', hemiSky: '#687898', hemiGround: '#26242c', horizonGlow: '#a83a7a',
+    waterDeep: '#232a3a', waterShallow: '#3e4a66', sunIntensity: 1.1, hemiIntensity: 0.8,
   },
   night: {
-    skyTop: '#05030f', skyHorizon: '#160a26', skyBottom: '#080512', sunColor: '#a8b8e8',
-    fogColor: '#0b0816', hemiSky: '#332a5e', hemiGround: '#2e1a33', horizonGlow: '#7a1a5a',
-    waterDeep: '#080b1c', waterShallow: '#22264a', sunIntensity: 0.35, hemiIntensity: 0.64,
+    skyTop: '#050810', skyHorizon: '#141a2a', skyBottom: '#080a14', sunColor: '#a8b8e8',
+    fogColor: '#0e1322', hemiSky: '#33355e', hemiGround: '#2a222e', horizonGlow: '#6a1a4a',
+    waterDeep: '#080b1c', waterShallow: '#22264a', sunIntensity: 0.35, hemiIntensity: 0.7,
   },
-  nightCityGlow: 0.9,
+  nightCityGlow: 0.55,
   nightGlowColor: '#ff2bd6',
 };
 
@@ -47,7 +47,7 @@ export default {
   defaults: {
     density: 0.98, block: 0.72, avgHeight: 1.24, heightVar: 0.85,
     commercial: 0.5, residential: 0.4, industrial: 0.1,
-    water: 0.45, parks: 0.06, terrain: 0.04, time: 0.94, fog: 0.4,
+    water: 0.45, parks: 0.06, terrain: 0.04, time: 0.66, fog: 0.4,
   },
   views: [
     { key: 'bay', label: '深圳湾', pos: [300, 290, 650], target: [0, 82, -30] },
@@ -60,7 +60,10 @@ export default {
     const S = params.size;
 
     // ------- land / bay -------
-    const groundMat = ctx.mat('ground', { color: '#1b1e24', roughness: 0.82, metalness: 0.15 });
+    const groundMat = ctx.nightSurface('ground', {
+      color: '#1b1e24', roughness: 0.72, metalness: 0.2, sheen: 0.5,
+      nightLift: '#141a24', nightLiftScale: 0.6,
+    });
     ctx.box(groundMat, 2000, 2, 2000, 0, -2.6, 0);
     ctx.box(groundMat, 680, 3, 360, 0, -2.4, -94);
     const bankMat = ctx.mat('bank', { color: '#3c3f46', roughness: 0.85 });
@@ -71,7 +74,7 @@ export default {
 
     // ------- materials -------
     const glass = ctx.facade('glass', {
-      winA: '#d8f4ff', winB: '#ffd6f8', floorH: 4.2, colW: 2.7, lit: 0.55,
+      winA: '#d8f4ff', winB: '#cfeaff', floorH: 4.2, colW: 2.7, lit: 0.55,
       roughness: 0.18, metalness: 0.6, rim: 0.18, rimColor: '#8fd7ff', glow: 1.3,
     });
     const blue = ctx.facade('blue', {
@@ -79,17 +82,17 @@ export default {
       roughness: 0.14, metalness: 0.68, rim: 0.22, rimColor: '#6fb7ff', glow: 1.3,
     });
     const dark = ctx.facade('dark', {
-      winA: '#ffb0ef', winB: '#a8d8ff', floorH: 3.5, colW: 2.2, lit: 0.4,
+      winA: '#bfe8ff', winB: '#a8d8ff', floorH: 3.5, colW: 2.2, lit: 0.4,
       roughness: 0.45, metalness: 0.4, rim: 0.1, rimColor: '#ff7fe0', glow: 1.6,
     });
     const towerGlass = ctx.mat('tower-glass', { color: '#7d9fb8', roughness: 0.14, metalness: 0.65 });
     const towerGlass2 = ctx.mat('tower-glass2', { color: '#a2b8c8', roughness: 0.12, metalness: 0.7 });
     const darkMetal = ctx.mat('dark-metal', { color: '#5d6570', roughness: 0.4, metalness: 0.8 });
     const deckMat = ctx.mat('deck', { color: '#2a2e36', roughness: 0.7 });
-    const neonCyan = ctx.glow('neon-cyan', '#00e5ff', 1, 2.8);
-    const neonMagenta = ctx.glow('neon-magenta', '#ff2bd6', 1, 2.8);
-    const neonWarm = ctx.glow('neon-warm', '#ffb347', 1, 2.4);
-    const beacon = ctx.glow('beacon', '#ff3344', 0.9, 2.8);
+    const neonCyan = ctx.glow('neon-cyan', '#00ddea', 0.8, 1.7);
+    const neonMagenta = ctx.glow('neon-magenta', '#ff2bd6', 0.8, 1.7);
+    const neonWarm = ctx.glow('neon-warm', '#ffb347', 0.85, 1.6);
+    const beacon = ctx.glow('beacon', '#ff3344', 0.9, 2.4);
 
     const unit = new THREE.BoxGeometry(1, 1, 1);
     unit.translate(0, 0.5, 0);
@@ -204,6 +207,19 @@ export default {
         for (let k = 0; k < count; k++) {
           const bx = jx + rng.range(-5, 5);
           const bz = jz + rng.range(-5, 5);
+          // A low-rise "urban village" belt keeps the silhouette from being a
+          // wall of identical supertalls: it is the contrast the style needs.
+          if (dist > 130 && rng.chance(0.28)) {
+            const lw = rng.range(13, 21);
+            const ld = rng.range(12, 19);
+            const lh = rng.range(8, 26);
+            ctx.addBuilding('dark', dark, {
+              x: bx, y: 0.4, z: bz, w: lw, h: lh, d: ld,
+              color: rng.pick(['#4b4a52', '#55525a', '#43444c']),
+              lit: rng.range(0.4, 0.7), seed: rng.next(), variant: rng.next(),
+            });
+            continue;
+          }
           const hv = 1 + (rng.next() - 0.5) * params.heightVar * 1.7;
           let h = clamp(rng.range(38, 120) * bias * hv * params.avgHeight, 18, 195);          const w = rng.range(10, 17);
           const d = rng.range(10, 17);
@@ -230,12 +246,13 @@ export default {
             h += th;
             towers[towers.length - 1].h = h;
           }
-          // Neon edges on most tall towers.
-          if (h > 50) {
+          // Neon edges on a small minority of towers. The city should still read
+          // as cyberpunk, but the neon is an accent, not the base coat.
+          if (h > 70 && rng.chance(0.16)) {
             const colorPick = rng.next();
             const batch = colorPick < 0.45 ? cyanBatch : colorPick < 0.8 ? magentaBatch : warmBatch;
             const edgeColor = colorPick < 0.45 ? '#00e5ff' : colorPick < 0.8 ? '#ff2bd6' : '#ffb347';
-            const sides = rng.chance(0.55) ? 2 : 1;
+            const sides = 1;
             for (let s = 0; s < sides; s++) {
               const side = rng.int(0, 3);
               const ox = side === 0 ? -w / 2 : side === 1 ? w / 2 : 0;
@@ -246,7 +263,7 @@ export default {
                 color: edgeColor,
               });
             }
-            if (rng.chance(0.6)) {
+            if (rng.chance(0.25)) {
               const y = 0.4 + h * rng.range(0.35, 0.85);
               batch.add({
                 x: bx, y, z: bz + d / 2 + 0.2, w: w, h: 0.5, d: 0.35,
@@ -254,7 +271,7 @@ export default {
               });
             }
             // Street-level neon strip.
-            if (rng.chance(0.4)) {
+            if (rng.chance(0.2)) {
               batch.add({
                 x: bx, y: 1.4, z: bz + d / 2 + 0.35, w: w * 0.86, h: 0.8, d: 0.3,
                 color: edgeColor,
@@ -321,15 +338,15 @@ export default {
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(52, 24), signMat);
     sign.position.set(0, 112, 84.9);
     ctx.world.add(sign);
-    ctx.box(deckMat, 55, 26, 1.2, 0, 99, 84);
-    // Floating holographic billboards along the bay.
-    for (let i = 0; i < 3; i++) {
-      const mat = createLedScreenMaterial(i % 2 === 0 ? '#00e5ff' : '#ff2bd6', i % 2 === 0 ? '#ff2bd6' : '#00e5ff');
+            ctx.box(deckMat, 55, 26, 1.2, 0, 99, 84);
+    // A single floating billboard, low intensity, so it stays a landmark.
+    for (let i = 0; i < 1; i++) {
+      const mat = createLedScreenMaterial('#00e5ff', '#ff2bd6');
       ctx.materials.push(mat);
-      const w = 30 + i * 6;
-      const h = 20 + i * 4;
-      const px = -150 + i * 140;
-      const py = 58 + i * 14;
+      const w = 20;
+      const h = 12;
+      const px = -60;
+      const py = 62;
       const plane = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
       plane.position.set(px, py, 93.4);
       ctx.world.add(plane);
@@ -362,23 +379,23 @@ export default {
     pctx.fillRect(0, 0, 128, 128);
     const poolTex = ctx.addTexture(new THREE.CanvasTexture(poolCanvas));
     poolTex.colorSpace = THREE.SRGBColorSpace;
-    for (let i = 0; i < 18; i++) {
+    for (let i = 0; i < 6; i++) {
       const t = towers[i * 9 % Math.max(1, towers.length)];
       if (!t) continue;
       const mat = new THREE.MeshBasicMaterial({
-        map: poolTex, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending,
-        depthWrite: false, color: new THREE.Color(i % 2 === 0 ? '#00e5ff' : '#ff2bd6').multiplyScalar(1.4),
+        map: poolTex, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending,
+        depthWrite: false, color: new THREE.Color(i % 2 === 0 ? '#00e5ff' : '#ff2bd6'),
       });
       mat.userData.disposeOnClear = true;
       ctx.materials.push(mat);
-      const plane = new THREE.Mesh(new THREE.PlaneGeometry(rng.range(14, 30), rng.range(70, 130)), mat);
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(rng.range(10, 20), rng.range(40, 70)), mat);
       plane.rotation.x = -Math.PI / 2;
       plane.position.set(t.x + rng.range(-15, 15), 0.16, 150 + rng.range(-30, 30));
       ctx.world.add(plane);
     }
 
     // ------- flying vehicles -------
-    const flyCount = 46;
+    const flyCount = 28;
     const flyPositions = new Float32Array(flyCount * 3);
     const flyColors = new Float32Array(flyCount * 3);
     const flySeeds = [];
@@ -399,8 +416,8 @@ export default {
     flyGeo.setAttribute('position', new THREE.BufferAttribute(flyPositions, 3));
     flyGeo.setAttribute('color', new THREE.BufferAttribute(flyColors, 3));
     const flyMat = new THREE.PointsMaterial({
-      size: 2.6, sizeAttenuation: true, vertexColors: true, transparent: true,
-      opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false,
+      size: 1.6, sizeAttenuation: true, vertexColors: true, transparent: true,
+      opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false,
     });
     flyMat.userData.disposeOnClear = true;
     const fly = new THREE.Points(flyGeo, flyMat);
@@ -433,7 +450,7 @@ export default {
       const line = new THREE.Line(geo, new THREE.LineBasicMaterial({
         color: new THREE.Color(lift === 0 ? '#00e5ff' : '#ff2bd6'),
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.45,
       }));
       ctx.world.add(line);
     }

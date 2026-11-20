@@ -51,7 +51,9 @@ class BuildingBatch {
       color.set(it.color || '#cccccc');
       mesh.setColorAt(i, color);
       if (data) {
-        data[i * 4] = it.seed ?? Math.random();
+        // Deterministic fallback: the whole city must be reproducible from the
+        // seed, so never reach for Math.random() here.
+        data[i * 4] = it.seed ?? (i * 0.61803398875) % 1;
         data[i * 4 + 1] = it.lit ?? 0.5;
         data[i * 4 + 2] = it.variant ?? 0.5;
         data[i * 4 + 3] = it.kind ?? 0;
@@ -90,8 +92,12 @@ class InstanceBatch {
     const color = new THREE.Color();
     for (let i = 0; i < n; i++) {
       const it = this.items[i];
-      e.set(it.rotX || 0, it.rotY || 0, it.rotZ || 0);
-      q.setFromEuler(e);
+      if (it.quaternion) {
+        q.copy(it.quaternion);
+      } else {
+        e.set(it.rotX || 0, it.rotY || 0, it.rotZ || 0);
+        q.setFromEuler(e);
+      }
       pos.set(it.x, it.y || 0, it.z);
       scale.set(it.w, it.h, it.d);
       m.compose(pos, q, scale);
@@ -126,8 +132,12 @@ export class BuildContext {
     this.roofDetails = 0;
     this.lampPoints = [];
     this.lampColors = [];
-    this.traffic = new TrafficSystem();
+    this.traffic = new TrafficSystem(this.rng);
     this._labelId = 0;
+    this.heightAt = null;
+    this.slopeAt = null;
+    this._foundationBatch = null;
+    this._foundationMat = null;
   }
 
   facade(key, opts) {
@@ -277,6 +287,132 @@ export class BuildContext {
     }
   }
 
+  // Bind a Heightfield so every placed building / landmark can be grounded.
+  bindTerrain(hf) {
+    this._terrain = hf;
+    this.heightAt = (x, z) => hf.heightAt(x, z);
+    this.slopeAt = (x, z) => hf.slopeAt(x, z);
+    return hf;
+  }
+
+  // Ground / terrain surface with a faint base emission and a soft grazing
+  // sheen after dark. Its fog thins with altitude, so the far bank stays
+  // legible at night instead of collapsing into a black band.
+  nightSurface(key, opts = {}) {
+    if (this._matCache.has(key)) return this._matCache.get(key);
+    const m = this.mat(key, {
+      color: opts.color ?? '#ffffff',
+      roughness: opts.roughness ?? 0.95,
+      metalness: opts.metalness ?? 0.02,
+    });
+    const uniforms = {
+      uNight: { value: 0 },
+      uNightLift: {
+        value: new THREE.Color(opts.nightLift ?? '#18222e')
+          .multiplyScalar(opts.nightLiftScale ?? 0.55),
+      },
+      uSheenColor: { value: new THREE.Color(opts.sheenColor ?? '#3c5878') },
+      uSheen: { value: opts.sheen ?? 0.22 },
+    };
+    m.userData.uniforms = uniforms;
+    m.customProgramCacheKey = () => `city-night-surface-${key}`;
+    m.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, uniforms);
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+          varying float vWorldY;`
+        )
+        .replace(
+          '#include <begin_vertex>',
+          `#include <begin_vertex>
+          vWorldY = (modelMatrix * vec4(transformed, 1.0)).y;`
+        );
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+          uniform float uNight;
+          uniform vec3 uNightLift;
+          uniform vec3 uSheenColor;
+          uniform float uSheen;
+          varying float vWorldY;`
+        )
+        .replace(
+          '#include <emissivemap_fragment>',
+          `#include <emissivemap_fragment>
+          float sheenFres = pow(1.0 - clamp(abs(dot(normalize(normal), normalize(vViewPosition))), 0.0, 1.0), 3.0);
+          totalEmissiveRadiance += uNightLift * uNight * (0.55 + 0.45 * sheenFres);
+          totalEmissiveRadiance += uSheenColor * uNight * sheenFres * uSheen;`
+        )
+        .replace(
+          '#include <fog_fragment>',
+          `#ifdef USE_FOG
+            float fogAltitude = mix(1.0, 0.3, smoothstep(0.0, 72.0, vWorldY));
+            #ifdef FOG_EXP2
+              float fogFactor = 1.0 - exp(-fogDensity * fogDensity * vFogDepth * vFogDepth * fogAltitude);
+            #else
+              float fogFactor = smoothstep(fogNear, fogFar, vFogDepth) * fogAltitude;
+            #endif
+            gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogFactor);
+          #endif`
+        );
+    };
+    return m;
+  }
+
+  // Grounded building pad. Samples four corners + centre, extends the
+  // foundation down to the lowest sample minus three metres, and caps the
+  // exposed part with a 0.6 m plinth. Buildings can neither float over a slope
+  // nor sink half into it.
+  foundation(x, z, w, d, opts = {}) {
+    const heightAt = opts.heightAt || this.heightAt;
+    const margin = opts.margin ?? 0.35;
+    if (!this._foundationMat) {
+      this._foundationMat = this.mat('foundation-stone', {
+        color: '#ffffff', roughness: 0.92, metalness: 0.03,
+        emissive: '#171b20', emissiveIntensity: 1,
+      });
+    }
+    if (!this._foundationBatch) {
+      this._foundationBatch = this.instance('foundations', this._unitBox.clone(), this._foundationMat);
+    }
+    const batch = this._foundationBatch;
+    if (!heightAt) {
+      const base = opts.base ?? 0;
+      batch.add({
+        x, y: base - 3, z, w: w * 1.04, h: 3, d: d * 1.04,
+        color: opts.color ?? '#54585c',
+      });
+      return base;
+    }
+    const samples = [
+      heightAt(x - w / 2, z - d / 2), heightAt(x + w / 2, z - d / 2),
+      heightAt(x - w / 2, z + d / 2), heightAt(x + w / 2, z + d / 2),
+      heightAt(x, z),
+    ];
+    let min = Infinity;
+    let max = -Infinity;
+    for (const h of samples) {
+      if (h < min) min = h;
+      if (h > max) max = h;
+    }
+    const base = (opts.base ?? max) + margin;
+    const bottom = min - 3;
+    batch.add({
+      x, y: bottom, z, w: w * 1.04, h: base - bottom, d: d * 1.04,
+      color: opts.color ?? '#6a6e72',
+    });
+    if (base - min > 0.6) {
+      batch.add({
+        x, y: base - 0.6, z, w: w * 1.08, h: 0.6, d: d * 1.08,
+        color: opts.capColor ?? '#85898d',
+      });
+    }
+    return base;
+  }
+
   mesh(geo, material, x = 0, y = 0, z = 0, rotY = 0, parent = this.world) {
     const m = new THREE.Mesh(geo, material);
     m.position.set(x, y, z);
@@ -284,7 +420,6 @@ export class BuildContext {
     parent.add(m);
     return m;
   }
-
   box(material, w, h, d, x, y, z, rotY = 0, parent = this.world) {
     const m = new THREE.Mesh(this._unitBox, material);
     m.position.set(x, y, z);
