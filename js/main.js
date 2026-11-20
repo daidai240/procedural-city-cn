@@ -141,6 +141,11 @@ controls.target.set(10, 34, 26);
 const env = new Environment(scene);
 
 const composer = new EffectComposer(renderer);
+// The composer renders into offscreen targets, so the renderer's `antialias`
+// flag does not apply. Multisampling those targets keeps distant rooflines and
+// terrain silhouettes smooth instead of stair-stepped.
+composer.renderTarget1.samples = 4;
+composer.renderTarget2.samples = 4;
 composer.addPass(new RenderPass(scene, camera));
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
@@ -647,7 +652,10 @@ let frameCount = 0;
 
 function tick(now) {
   requestAnimationFrame(tick);
-  const dt = Math.min(0.05, (now - lastTime) / 1000);
+  // The first requestAnimationFrame timestamp can predate module evaluation,
+  // which would otherwise produce a negative first delta and negative elapsed
+  // time (curve samplers expect elapsed >= 0).
+  const dt = Math.min(0.05, Math.max(0, (now - lastTime) / 1000));
   lastTime = now;
   elapsed += dt;
   frameCount++;

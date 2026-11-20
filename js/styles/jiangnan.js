@@ -36,6 +36,8 @@ export default {
   waterReflect: 0.18,
   env: PALETTE,
   hasWater: true,
+  // Pitched tile roofs are part of every house; skip the flat-roof detail layer.
+  roofDetail: false,
   patterns: [
     { value: 'grid', label: '水巷棋盘' },
   ],

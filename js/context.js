@@ -8,6 +8,15 @@ const UNIT_BOX = () => {
   return g;
 };
 
+function hash01(n) {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+function clampNum(v, min, max) {
+  return v < min ? min : v > max ? max : v;
+}
+
 class BuildingBatch {
   constructor(material, geometry, withData) {
     this.material = material;
@@ -114,6 +123,7 @@ export class BuildContext {
     this._batchCache = new Map();
     this._unitBox = UNIT_BOX();
     this.buildingCount = 0;
+    this.roofDetails = 0;
     this.lampPoints = [];
     this.lampColors = [];
     this.traffic = new TrafficSystem();
@@ -195,6 +205,76 @@ export class BuildContext {
     const b = this.building(batchKey, material);
     b.add(item);
     this.buildingCount++;
+    this.addRoofDetail(item);
+  }
+
+  // Rooftop structure shared by every flat-roofed building family: a parapet
+  // ring plus, on larger roofs, a stair tower / water tank / AC units. All of
+  // it goes into one InstancedMesh batch, so the extra close-up detail costs a
+  // single draw call. Styles that build their own pitched roofs opt out with
+  // `roofDetail: false`; individual buildings can opt out with `roof: false`.
+  addRoofDetail(item) {
+    if (this.style.roofDetail === false || item.roof === false) return;
+    const { x, y, z, w, d, h } = item;
+    if (!(h > 8) || !(w > 4) || !(d > 4)) return;
+    if (!this._roofDetailMaterial) {
+      this._roofDetailMaterial = this.mat('roof-detail', {
+        color: '#ffffff', roughness: 0.86, metalness: 0.06,
+      });
+    }
+    const batch = this.instance('roof-detail', this._unitBox, this._roofDetailMaterial);
+    const seed = Number.isFinite(item.seed) ? item.seed : 0.37;
+    const r0 = hash01(seed * 917.3 + 3.1);
+    const r1 = hash01(seed * 333.7 + 11.7);
+    const r2 = hash01(seed * 577.1 + 7.3);
+    const roofY = y + h;
+    const t = Math.min(0.45, Math.min(w, d) * 0.06 + 0.12);
+    const ph = 0.7 + r0 * 1.1;
+    const grey = ['#7c7f83', '#6e7277', '#8a8d90', '#666a6f'][Math.floor(r1 * 4) % 4];
+
+    // Parapet ring around the roof edge.
+    batch.add({ x, y: roofY, z: z + d / 2 - t / 2, w, h: ph, d: t, color: grey });
+    batch.add({ x, y: roofY, z: z - d / 2 + t / 2, w, h: ph, d: t, color: grey });
+    batch.add({ x: x + w / 2 - t / 2, y: roofY, z, w: t, h: ph, d: Math.max(0.5, d - 2 * t), color: grey });
+    batch.add({ x: x - w / 2 + t / 2, y: roofY, z, w: t, h: ph, d: Math.max(0.5, d - 2 * t), color: grey });
+    this.roofDetails += 4;
+
+    if (w * d < 130 || h < 14 || r2 > 0.82) return;
+
+    // Stair / elevator bulkhead.
+    const sw = w * (0.16 + 0.10 * r1);
+    const sd = d * (0.16 + 0.12 * r2);
+    const sh = 2.2 + 2.2 * r0;
+    const ox = clampNum((r1 - 0.5) * (w - sw - 2.4), -w / 2 + sw / 2 + 1.2, w / 2 - sw / 2 - 1.2);
+    const oz = clampNum((r2 - 0.5) * (d - sd - 2.4), -d / 2 + sd / 2 + 1.2, d / 2 - sd / 2 - 1.2);
+    batch.add({ x: x + ox, y: roofY + 0.02, z: z + oz, w: sw, h: sh, d: sd, color: '#5f6368' });
+    this.roofDetails++;
+
+    // Rooftop plant: water tank and AC boxes tucked beside the bulkhead.
+    const units = 1 + Math.floor(r0 * 3);
+    for (let i = 0; i < units; i++) {
+      const u1 = hash01(seed * 1301.9 + i * 7.7);
+      const u2 = hash01(seed * 1777.3 + i * 3.9);
+      const uw = 0.9 + u1 * 1.4;
+      const ud = 0.9 + u2 * 1.4;
+      const uh = 0.7 + u1 * 1.3;
+      const px = clampNum((u2 - 0.5) * (w - uw - 1.2), -w / 2 + uw / 2 + 0.6, w / 2 - uw / 2 - 0.6);
+      const pz = clampNum((u1 - 0.5) * (d - ud - 1.2), -d / 2 + ud / 2 + 0.6, d / 2 - ud / 2 - 0.6);
+      if (Math.hypot(px - ox, pz - oz) < Math.max(sw, sd) * 0.72) continue;
+      batch.add({
+        x: x + px, y: roofY + 0.02, z: z + pz, w: uw, h: uh, d: ud,
+        color: u1 > 0.55 ? '#8f9296' : '#6b6f74',
+      });
+      this.roofDetails++;
+    }
+    if (h > 46 && r0 > 0.55) {
+      const tank = 1.8 + r1 * 1.1;
+      batch.add({
+        x: x - ox * 0.6, y: roofY + 0.02, z: z - oz * 0.6,
+        w: tank, h: 2.0 + r2 * 0.9, d: tank, color: '#9aa0a4',
+      });
+      this.roofDetails++;
+    }
   }
 
   mesh(geo, material, x = 0, y = 0, z = 0, rotY = 0, parent = this.world) {
@@ -343,6 +423,7 @@ export class BuildContext {
     }
     return {
       buildings: this.buildingCount,
+      roofDetails: this.roofDetails,
       labels: this.labels,
       traffic: this.traffic,
     };

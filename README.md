@@ -86,6 +86,8 @@ npm test
 技术要点：
 
 - **单 draw call 建筑群**：`InstancedMesh` + `onBeforeCompile` 立面 shader，按实例随机亮窗，数以千计的楼宇保持流畅。
+- **近景建筑细节**：立面 shader 增加窗框、竖梃、楼层分隔线与檐口；屋顶统一生成女儿墙、楼梯间、水箱与空调机组，近处可分辨楼层、窗格和屋顶结构。
+- **远景 LOD 与顺滑轮廓**：窗格等高频细节随距离渐隐、远窗发光取平均，避免远景闪烁；重庆地形网格加密到 300 段并衰减远处高频起伏，后期渲染开启 4× MSAA，远景轮廓和地表更顺滑。
 - **程序化地形**：重庆用噪声高度场 + 两江折线距离场切出河床与陡岸，建筑自动生成挡土墙/吊脚基础。
 - **有生命的细节**：车灯光点、轻轨列车、乌篷船、磁浮、飞行器、江面反光、LED 屏幕动画。
 - **可复现**：种子 + 参数决定全部随机数，URL hash 同步。
@@ -93,6 +95,8 @@ npm test
 ## 截图
 
 最终效果见 [`docs/screenshots/final/`](docs/screenshots/final/)。每张图中右侧面板展示了该城市的默认参数与机位。
+
+近景细节与远景轮廓的 Before / After 对照见 [`docs/screenshots/detail-lod/`](docs/screenshots/detail-lod/)，可用 `npm run capture:detail` 重新采集。
 
 ## 许可
 

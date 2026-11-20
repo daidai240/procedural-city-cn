@@ -22,3 +22,14 @@
 - 江南：默认机位改为贴近水面的巷道视角；降低雾的乳白感，提高白墙/黛瓦对比，增加第二排民居、灯笼、石阶与乌篷船。
 
 > 说明：这是全新项目，没有既有产品 UI 可作对照。`before` 是第一版可运行版本的实机截图，`final` 是本次交付的实机截图；两组都来自真实应用渲染，而不是设计稿。
+
+## detail-lod/
+
+本轮「近景建筑细节 + 远景轮廓/地表顺滑」改动的 Before / After 对照。五个场景均使用同一 1440 × 900 视口、同一无头 Chromium、同一相机、同一时间与雾参数：
+
+- `chongqing-southbank-close-day`：白天南岸近景，检查楼层、窗格、屋顶结构。
+- `chongqing-south-day`：白天南岸全景，检查远景立面 LOD 与地形轮廓。
+- `chongqing-south-night`：默认夜景，检查夜间窗格细节与整体氛围。
+- `lujiazui-bund-dusk` / `shenzhen-bay-night`：远景地标与天际线。
+
+Before 采集自本轮改动前的 `main`（`09f504d`），After 采集自本轮分支；可用 `npm run capture:detail` 复现。

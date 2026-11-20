@@ -18,6 +18,7 @@ export function createFacadeMaterial(opts = {}) {
     uRimColor: { value: new THREE.Color(opts.rimColor ?? '#8fb8e8') },
     uRim: { value: opts.rim ?? 0.0 },
     uBaseDark: { value: opts.baseDark ?? 0.55 },
+    uDetail: { value: opts.detail ?? 1.0 },
   };
 
   const mat = new THREE.MeshStandardMaterial({
@@ -68,6 +69,7 @@ export function createFacadeMaterial(opts = {}) {
         uniform vec3 uRimColor;
         uniform float uRim;
         uniform float uBaseDark;
+        uniform float uDetail;
         varying vec4 vBldg;
         varying vec3 vBSize;
 
@@ -75,33 +77,75 @@ export function createFacadeMaterial(opts = {}) {
           p = fract(p * vec2(123.34, 456.21));
           p += dot(p, p + 45.32);
           return fract(p.x * p.y);
+        }
+
+        // Anti-aliased band between a and b; aa is the half pixel footprint.
+        float facadeRect(float x, float a, float b, float aa) {
+          return smoothstep(a - aa, a + aa, x) * (1.0 - smoothstep(b - aa, b + aa, x));
         }`
       )
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
-        float sideMask = smoothstep(0.55, 0.9, 1.0 - abs(normalize(normal).y));
-        float faceU = abs(normalize(normal).x) > abs(normalize(normal).z) ? vBSize.z : vBSize.x;
+        vec3 nrm = normalize(normal);
+        float sideMask = smoothstep(0.55, 0.9, 1.0 - abs(nrm.y));
+        float faceU = abs(nrm.x) > abs(nrm.z) ? vBSize.z : vBSize.x;
         float faceY = vBSize.y;
+        float faceTop = vBSize.y;
         float colW = uColW * (0.86 + 0.28 * vBldg.y);
-        float cellU = floor(faceU / colW);
-        float cellV = floor(faceY / uFloorH);
-        vec2 cell = vec2(cellU, cellV);
-        float fu = fract(faceU / colW);
-        float fv = fract(faceY / uFloorH);
-        float winMask = step(0.24, fu) * step(fu, 0.76) * step(0.26, fv) * step(fv, 0.7);
+        float u = faceU / colW;
+        float v = faceY / uFloorH;
+        vec2 cell = floor(vec2(u, v));
+        float fu = fract(u);
+        float fv = fract(v);
+        float aaU = max(fwidth(u) * 1.35, 0.0025);
+        float aaV = max(fwidth(v) * 1.35, 0.0025);
+        float winMask = facadeRect(fu, 0.24, 0.76, aaU) * facadeRect(fv, 0.26, 0.70, aaV);
         float aboveGround = step(2.4, faceY);
         float h1 = bHash(cell + vec2(vBldg.x * 37.0, vBldg.x * 11.0));
         float lit = step(1.0 - uLit * (0.35 + 0.9 * vBldg.y), h1);
         vec3 winCol = mix(uWinA, uWinB, step(0.72, bHash(cell * 1.31 + vBldg.x)));
-        totalEmissiveRadiance += winCol * winMask * lit * aboveGround * sideMask * uNight * uGlow;
+
+        // Near / far detail split. Sub-pixel facade relief fades with distance so
+        // far buildings read as smooth silhouettes instead of shimmering grids.
+        float viewDist = length(vViewPosition);
+        float far = smoothstep(150.0, 520.0, viewDist);
+        float detail = (1.0 - far) * uDetail;
+
+        // Close-up relief: window frames, mullions, floor slabs and a cornice.
+        float frame = max(0.0, facadeRect(fu, 0.15, 0.85, aaU) * facadeRect(fv, 0.17, 0.79, aaV) - winMask) * aboveGround * sideMask;
+        float mullion = facadeRect(fu, 0.48, 0.52, aaU * 1.6) * facadeRect(fv, 0.26, 0.70, aaV) * aboveGround * sideMask;
+        float slab = facadeRect(fv, 0.0, 0.075, aaV) * sideMask;
+        float slabHi = facadeRect(fv, 0.075, 0.135, aaV) * sideMask;
+        float cornice = smoothstep(faceTop - 2.2, faceTop - 1.0, faceY) * sideMask;
+
+        // Daylight glazing: windows read as dark glass, frames catch the light.
+        float dayGlass = (1.0 - uNight * 0.55) * detail;
+        vec3 glassCol = mix(diffuseColor.rgb * 0.28, uWinB * 0.72, 0.42);
+        diffuseColor.rgb = mix(diffuseColor.rgb, glassCol, winMask * sideMask * aboveGround * dayGlass * 0.9);
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.18 + vec3(0.025), frame * detail * (0.24 + 0.50 * (1.0 - uNight)));
+        diffuseColor.rgb *= 1.0 - mullion * detail * 0.45;
+        diffuseColor.rgb *= 1.0 - slab * detail * 0.30;
+        diffuseColor.rgb *= 1.0 + slabHi * detail * 0.10;
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.22 + vec3(0.02), cornice * detail * (0.25 + 0.35 * (1.0 - uNight)));
+
+        // Night windows. Beyond the detail range the individual window grid is
+        // averaged into a soft facade glow and a weaker emission; this keeps the
+        // far skyline smooth while preserving the lit-city character.
+        float winLit = winMask * lit * aboveGround * sideMask;
+        float farSoft = far * far;
+        totalEmissiveRadiance += winCol * winLit * uNight * uGlow * (1.0 - farSoft * 0.45);
+        totalEmissiveRadiance += winCol * (uLit * 0.22) * aboveGround * sideMask * uNight * uGlow * farSoft;
         // Ground-floor shopfront glow.
         float shop = (1.0 - step(4.2, faceY)) * step(0.8, faceY) * sideMask * uNight;
         totalEmissiveRadiance += uWinA * shop * 0.55;
         // A faint self-glow keeps the metropolis legible after dark.
         totalEmissiveRadiance += diffuseColor.rgb * uNight * 0.075;
-        float fres = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 3.0);
-        totalEmissiveRadiance += uRimColor * fres * uRim * (0.35 + 0.65 * uNight);
+        // Atmospheric rim on tall towers keeps distant landmark silhouettes
+        // legible without changing the near-field look.
+        float fres = pow(1.0 - abs(dot(nrm, normalize(vViewPosition))), 3.0);
+        float landmark = smoothstep(80.0, 150.0, faceTop);
+        totalEmissiveRadiance += uRimColor * fres * (uRim + landmark * 0.045 * smoothstep(180.0, 520.0, viewDist)) * (0.35 + 0.65 * uNight);
         diffuseColor.rgb *= mix(uBaseDark, 1.0, smoothstep(0.0, 10.0, faceY));
         diffuseColor.rgb *= 0.9 + 0.1 * step(0.12, fv);`
       );
