@@ -103,6 +103,8 @@ for (const id of ids) {
   const info = await page.evaluate(() => ({
     style: window.__CITY__.style.id,
     buildings: window.__CITY__.stats.buildings,
+    roofDetails: window.__CITY__.stats.roofDetails ?? 0,
+    terrainSegments: window.__CITY__.ctx.terrainSegments ?? 0,
     labels: window.__CITY__.ctx.labels.length,
     pattern: window.__CITY__.state.pattern,
   }));
@@ -115,6 +117,12 @@ for (const id of ids) {
   check(`${id}: has buildings`, info.buildings > 40, info.buildings);
   check(`${id}: has landmark labels`, info.labels >= 3, info.labels);
   check(`${id}: style id`, info.style === id, info.style);
+  if (id === 'chongqing' || id === 'lujiazui' || id === 'shenzhen') {
+    check(`${id}: rooftop structure detail`, info.roofDetails > 40, info.roofDetails);
+  }
+  if (id === 'chongqing') {
+    check('chongqing: terrain mesh refined', info.terrainSegments >= 300, info.terrainSegments);
+  }
 }
 
 for (let i = 0; i < ids.length; i++) {

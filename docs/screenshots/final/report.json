@@ -1,46 +1,56 @@
 {
   "url": "http://127.0.0.1:5199/",
-  "durationMs": 72533,
+  "durationMs": 124985,
   "stats": {
     "chongqing": {
       "style": "chongqing",
-      "buildings": 1054,
+      "buildings": 1055,
+      "roofDetails": 5292,
+      "terrainSegments": 300,
       "labels": 5,
       "pattern": "organic",
-      "mean": 23.657545658330083,
-      "std": 36.47337099673814
+      "mean": 30.043813670626655,
+      "std": 39.784689017903375
     },
     "lujiazui": {
       "style": "lujiazui",
       "buildings": 242,
+      "roofDetails": 1069,
+      "terrainSegments": 0,
       "labels": 5,
       "pattern": "grid",
-      "mean": 72.27322643127187,
-      "std": 50.55299105464643
+      "mean": 76.26801183660457,
+      "std": 50.23064063663775
     },
     "xian": {
       "style": "xian",
       "buildings": 318,
+      "roofDetails": 0,
+      "terrainSegments": 0,
       "labels": 4,
       "pattern": "grid",
-      "mean": 60.3650630794908,
-      "std": 29.232295133091437
+      "mean": 60.65148479929764,
+      "std": 29.092618235199506
     },
     "shenzhen": {
       "style": "shenzhen",
       "buildings": 551,
+      "roofDetails": 3280,
+      "terrainSegments": 0,
       "labels": 5,
       "pattern": "grid",
-      "mean": 24.163205484411208,
-      "std": 41.384130990668496
+      "mean": 30.279423722443987,
+      "std": 45.744064277688004
     },
     "jiangnan": {
       "style": "jiangnan",
       "buildings": 216,
+      "roofDetails": 0,
+      "terrainSegments": 0,
       "labels": 5,
       "pattern": "grid",
-      "mean": 116.51011127623542,
-      "std": 74.46679433349456
+      "mean": 111.11234747122934,
+      "std": 68.84821670339987
     }
   },
   "checks": [
@@ -48,14 +58,14 @@
       "name": "chongqing: non-blank canvas",
       "ok": true,
       "detail": {
-        "mean": 23.657545658330083,
-        "std": 36.47337099673814
+        "mean": 30.043813670626655,
+        "std": 39.784689017903375
       }
     },
     {
       "name": "chongqing: has buildings",
       "ok": true,
-      "detail": 1054
+      "detail": 1055
     },
     {
       "name": "chongqing: has landmark labels",
@@ -68,11 +78,21 @@
       "detail": "chongqing"
     },
     {
+      "name": "chongqing: rooftop structure detail",
+      "ok": true,
+      "detail": 5292
+    },
+    {
+      "name": "chongqing: terrain mesh refined",
+      "ok": true,
+      "detail": 300
+    },
+    {
       "name": "lujiazui: non-blank canvas",
       "ok": true,
       "detail": {
-        "mean": 72.27322643127187,
-        "std": 50.55299105464643
+        "mean": 76.26801183660457,
+        "std": 50.23064063663775
       }
     },
     {
@@ -91,11 +111,16 @@
       "detail": "lujiazui"
     },
     {
+      "name": "lujiazui: rooftop structure detail",
+      "ok": true,
+      "detail": 1069
+    },
+    {
       "name": "xian: non-blank canvas",
       "ok": true,
       "detail": {
-        "mean": 60.3650630794908,
-        "std": 29.232295133091437
+        "mean": 60.65148479929764,
+        "std": 29.092618235199506
       }
     },
     {
@@ -117,8 +142,8 @@
       "name": "shenzhen: non-blank canvas",
       "ok": true,
       "detail": {
-        "mean": 24.163205484411208,
-        "std": 41.384130990668496
+        "mean": 30.279423722443987,
+        "std": 45.744064277688004
       }
     },
     {
@@ -137,11 +162,16 @@
       "detail": "shenzhen"
     },
     {
+      "name": "shenzhen: rooftop structure detail",
+      "ok": true,
+      "detail": 3280
+    },
+    {
       "name": "jiangnan: non-blank canvas",
       "ok": true,
       "detail": {
-        "mean": 116.51011127623542,
-        "std": 74.46679433349456
+        "mean": 111.11234747122934,
+        "std": 68.84821670339987
       }
     },
     {
@@ -162,7 +192,7 @@
     {
       "name": "visual difference chongqing vs lujiazui",
       "ok": true,
-      "detail": 60.2
+      "detail": 58.2
     },
     {
       "name": "visual difference chongqing vs xian",
@@ -172,42 +202,42 @@
     {
       "name": "visual difference chongqing vs shenzhen",
       "ok": true,
-      "detail": 29.6
+      "detail": 37.4
     },
     {
       "name": "visual difference chongqing vs jiangnan",
       "ok": true,
-      "detail": 96.9
+      "detail": 90.8
     },
     {
       "name": "visual difference lujiazui vs xian",
       "ok": true,
-      "detail": 38.6
+      "detail": 41.4
     },
     {
       "name": "visual difference lujiazui vs shenzhen",
       "ok": true,
-      "detail": 61.6
+      "detail": 60.8
     },
     {
       "name": "visual difference lujiazui vs jiangnan",
       "ok": true,
-      "detail": 54.7
+      "detail": 57.1
     },
     {
       "name": "visual difference xian vs shenzhen",
       "ok": true,
-      "detail": 52.9
+      "detail": 56.2
     },
     {
       "name": "visual difference xian vs jiangnan",
       "ok": true,
-      "detail": 71.1
+      "detail": 67.6
     },
     {
       "name": "visual difference shenzhen vs jiangnan",
       "ok": true,
-      "detail": 99.2
+      "detail": 89.4
     },
     {
       "name": "headless framerate",
@@ -218,21 +248,21 @@
       "name": "density slider rebuilds city",
       "ok": true,
       "detail": {
-        "before": 1054,
-        "after": 446
+        "before": 1055,
+        "after": 454
       }
     },
     {
       "name": "density change visible",
       "ok": true,
-      "detail": 11.893257209778948
+      "detail": 13.948716146977016
     },
     {
       "name": "time-of-day slider changes lighting",
       "ok": true,
       "detail": {
-        "night": 24,
-        "day": 116
+        "night": 30,
+        "day": 115
       }
     },
     {
@@ -244,8 +274,8 @@
       "name": "deterministic seed produces same building count",
       "ok": true,
       "detail": {
-        "seedA": 1051,
-        "seedB": 1051
+        "seedA": 1071,
+        "seedB": 1071
       }
     },
     {

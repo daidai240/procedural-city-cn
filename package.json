@@ -8,7 +8,8 @@
   "scripts": {
     "start": "node tests/serve.mjs",
     "test": "node tests/smoke.mjs",
-    "capture": "node tests/capture.mjs"
+    "capture": "node tests/capture.mjs",
+    "capture:detail": "node tests/detail-shots.mjs"
   },
   "devDependencies": {
     "jpeg-js": "^0.4.4",

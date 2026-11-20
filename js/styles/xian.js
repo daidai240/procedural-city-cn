@@ -36,6 +36,9 @@ export default {
   fogScale: 0.45,
   exposure: 1.3,
   waterReflect: 0.3,
+  // This style builds its own pitched tile roofs on every house, so the generic
+  // flat-roof parapet/plant layer would clash with them.
+  roofDetail: false,
   env: PALETTE,
   patterns: [
     { value: 'grid', label: '棋盘里坊' },

@@ -78,7 +78,10 @@ export default {
       h += cbd * 16 * (0.4 + params.terrain);
       h += smoothstep(-80, -260, z) * 18 * params.terrain;
       h += smoothstep(210, 330, Math.abs(x)) * 10;
-      h += (fbm2(x * 0.03, z * 0.03) - 0.5) * 5;
+      // Fade the high-frequency ripple out towards the horizon so the distant
+      // terrain silhouette stays smooth instead of breaking into jagged folds.
+      const farMask = smoothstep(230, 560, Math.hypot(x, z));
+      h += (fbm2(x * 0.03, z * 0.03) - 0.5) * 5 * (1.0 - farMask * 0.9);
       const bank = smoothstep(0, 34, dRiver);
       h = -7 + (h + 7) * Math.pow(bank, 0.72);
       if (bank > 0.96) h = Math.max(h, 1.4);
@@ -97,7 +100,8 @@ export default {
       return green;
     };
 
-    const hf = new Heightfield({ size: 1200, segments: 210, heightFn, colorFn });
+    const hf = new Heightfield({ size: 1200, segments: 300, heightFn, colorFn });
+    ctx.terrainSegments = hf.segments;
     const terrainMat = ctx.mat('terrain', { color: '#ffffff', roughness: 0.97, metalness: 0.0 });
     terrainMat.vertexColors = true;
     const terrain = hf.buildMesh(terrainMat);
@@ -340,6 +344,8 @@ export default {
           x, y: groundY + 0.6, z, w, h, d,
           color: rng.pick(['#8c7457', '#967d5f', '#7d674d']),
           lit: 0.95, seed: rng.next(), variant: rng.next(),
+          // These tiers carry their own gable roof and eave details.
+          roof: false,
         });
         // Warm eaves at every floor, facing the river.
         const floors = Math.floor(h / 3.3);
@@ -390,10 +396,12 @@ export default {
     ctx.addBuilding('res', res, {
       x: monX, y: monBase, z: monZ, w: 28, h: 19, d: 15,
       color: '#b8aa96', lit: 0.85, seed: rng.next(), variant: 0.6,
+      roof: false,
     });
     ctx.addBuilding('res', res, {
       x: monX, y: monBase + 28, z: monZ, w: 28, h: 22, d: 15,
       color: '#b8aa96', lit: 0.85, seed: rng.next(), variant: 0.6,
+      roof: false,
     });
     ctx.box(stoneMat, 5.4, 9, 15, monX - 11.2, monBase + 19, monZ);
     ctx.box(stoneMat, 5.4, 9, 15, monX + 11.2, monBase + 19, monZ);
@@ -487,6 +495,8 @@ export default {
           x: px, y: rfBase + s * segH, z: pz,
           w: 11 * shrink, h: segH + 0.6, d: 11 * shrink,
           color: '#7f9db2', lit: 0.55, seed: rng.next(), variant: rng.next(),
+          // The leaning-tower stack is its own stepped silhouette.
+          roof: false,
         });
       }
       ctx.lamp(px, rfBase + segs * segH + 2, pz, '#9fd8ff', 1.2);
