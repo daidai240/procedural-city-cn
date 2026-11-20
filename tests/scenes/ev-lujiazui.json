@@ -1,0 +1,7 @@
+{
+  "style": "lujiazui",
+  "time": 0.62,
+  "scenes": [
+    { "name": "lujiazui-bund", "panel": "closed", "labels": false }
+  ]
+}

@@ -10,9 +10,9 @@ const PALETTE = {
     waterDeep: '#3a423c', waterShallow: '#6d7264', sunIntensity: 2.0, hemiIntensity: 0.92,
   },
   dusk: {
-    skyTop: '#413d63', skyHorizon: '#ffb36e', skyBottom: '#8a6555', sunColor: '#ffc98a',
-    fogColor: '#c59a76', hemiSky: '#e0be9e', hemiGround: '#42362c', horizonGlow: '#ff944d',
-    waterDeep: '#3e3a34', waterShallow: '#7a624c', sunIntensity: 1.6, hemiIntensity: 1.0,
+    skyTop: '#38445e', skyHorizon: '#ffc48a', skyBottom: '#75695e', sunColor: '#fff0d8',
+    fogColor: '#b3aa9b', hemiSky: '#b8c6d4', hemiGround: '#4a443a', horizonGlow: '#ffae6a',
+    waterDeep: '#3a423c', waterShallow: '#6d7264', sunIntensity: 1.0, hemiIntensity: 1.4,
   },
   night: {
     skyTop: '#050a13', skyHorizon: '#111b28', skyBottom: '#080c12', sunColor: '#93a9c4',
@@ -34,7 +34,8 @@ export default {
   accent2: '#ffe3ad',
   accentRgb: '224, 178, 92',
   fogScale: 0.45,
-  exposure: 1.3,
+  exposure: 1.45,
+  windowBoost: 1.6,
   waterReflect: 0.3,
   // This style builds its own pitched tile roofs on every house, so the generic
   // flat-roof parapet/plant layer would clash with them.
@@ -59,7 +60,10 @@ export default {
     const S = params.size;
 
     // ------- ground and moat -------
-    const groundMat = ctx.mat('ground', { color: '#7f7a63', roughness: 0.97 });
+    const groundMat = ctx.nightSurface('ground', {
+      color: '#8a8674', roughness: 0.97, sheen: 0.14,
+      nightLift: '#2a2318', nightLiftScale: 0.4,
+    });
     ctx.box(groundMat, 2000, 2, 2000, 0, -2.7, 0);
     // Ring of plain ground around the moat, extending to the horizon.
     ctx.box(groundMat, 2000, 2.6, 874, 0, -2.2, -563);
@@ -73,7 +77,7 @@ export default {
     const wallMat = ctx.mat('wall', { color: '#8e8371', roughness: 0.96, emissive: '#241407', emissiveIntensity: 0.35 });
     const woodMat = ctx.mat('wood', { color: '#7a4a32', roughness: 0.8, emissive: '#3a1a08', emissiveIntensity: 0.55 });
     const roofGreen = ctx.mat('roof-green', { color: '#3c5a52', roughness: 0.68, metalness: 0.18, emissive: '#10251e', emissiveIntensity: 0.35 });
-    const roofDark = ctx.mat('roof-dark', { color: '#2b2e30', roughness: 0.86, emissive: '#0a0c0c', emissiveIntensity: 0.2 });
+    const roofDark = ctx.mat('roof-dark', { color: '#45484a', roughness: 0.86, emissive: '#0d1012', emissiveIntensity: 0.3 });
     const brickMat = ctx.mat('brick', { color: '#a39170', roughness: 0.94, emissive: '#3a2a12', emissiveIntensity: 0.32 });
     const glowWarm = ctx.glow('warm', '#ffbe6a', 1, 2.4);
     const glowRed = ctx.glow('red', '#ff5f3a', 1, 2.2);
@@ -88,6 +92,9 @@ export default {
     });
     const roofGeo = gableRoofGeometry(1, 0.14);
     const roofBatch = ctx.instance('roofs', roofGeo, roofDark);
+    const eaveGlowGeo = new THREE.BoxGeometry(1, 1, 1);
+    eaveGlowGeo.translate(0, 0.5, 0);
+    const eaveGlowBatch = ctx.instance('house-eaves', eaveGlowGeo, glowWarm);
     const hipGreenGeo = hipRoofGeometry(1, 0.22, 0.18);
     const hipDarkGeo = hipRoofGeometry(1, 0.2, 0.16);
 
@@ -270,6 +277,13 @@ export default {
       roof.position.set(x, h + 0.4, z);
       roof.rotation.y = rotY;
       ctx.world.add(roof);
+      // Warm under-eave light so the walled city is not a black roof field.
+      for (const sz of [-1, 1]) {
+        eaveGlowBatch.add({
+          x, y: 0.4 + h - 0.12, z: z + sz * (d / 2 + 0.12),
+          w: w * 0.8, h: 0.16, d: 0.28, rotY, color: '#ffcf92',
+        });
+      }
       if (shop) {
         ctx.box(glowWarm, w * 0.85, 0.3, 0.4, x, h + 0.2, z + d / 2 + 0.2, rotY);
       }
@@ -323,7 +337,10 @@ export default {
       const x = rng.chance(0.5) ? rng.range(-680, -190) : rng.range(190, 680);
       const z = rng.range(-560, 560);
       if (Math.abs(z) < 180 && Math.abs(x) < 230) continue;
-      ctx.box(rng.pick(fieldMats), rng.range(28, 80), 0.22, rng.range(18, 46), x, 0.4, z);
+      // Fields are zero-thickness decals lying on the ground: no side faces to
+      // read as floating cards, and no vertical offset from the terrain.
+      const plane = ctx.plane(rng.pick(fieldMats), rng.range(28, 80), rng.range(18, 46), x, 0.43, z);
+      plane.renderOrder = 1;
       if (rng.chance(0.5)) {
         ctx.tree(x + rng.range(-20, 20), 0.4, z + rng.range(-15, 15), rng.range(0.9, 1.5), 'pine', '#425c39');
       }

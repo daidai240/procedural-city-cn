@@ -252,13 +252,22 @@ function build() {
 function applyNight() {
   if (!ctx) return;
   const night = env.windowNight;
+  // Ground sheen mirrors the sky / city glow so wet streets and riverbanks
+  // catch a little light instead of disappearing into black.
+  const sheen = new THREE.Color();
+  if (env.fogColor) {
+    sheen.copy(env.fogColor)
+      .lerp(env.skyUniforms.horizonColor.value, 0.55)
+      .multiplyScalar(2.2);
+  }
   for (const m of ctx.materials) {
     const u = m.userData && m.userData.uniforms;
     if (u && u.uNight) u.uNight.value = night;
+    if (u && u.uSheenColor) u.uSheenColor.value.copy(sheen);
   }
   if (ctx.traffic) ctx.traffic.setNight(night);
   if (ctx.lampMaterial) ctx.lampMaterial.opacity = 0.32 + night * 0.72;
-  if (bloomPass) bloomPass.strength = (style && style.id === 'shenzhen') ? 0.55 : 0.34 + night * 0.16;
+  if (bloomPass) bloomPass.strength = (style && style.id === 'shenzhen') ? 0.42 : 0.34 + night * 0.16;
 }
 
 function queueBuild(delay = 130) {
@@ -448,7 +457,7 @@ function renderControls() {
       if (key === 'time' || key === 'fog') {
         env.apply(style, state);
         applyNight();
-        if (bloomPass) bloomPass.strength = (style.id === 'shenzhen') ? 0.55 : 0.34 + env.windowNight * 0.16;
+        if (bloomPass) bloomPass.strength = (style.id === 'shenzhen') ? 0.42 : 0.34 + env.windowNight * 0.16;
         updateHashSoon();
       } else {
         queueBuild(key === 'pattern' ? 0 : 110);

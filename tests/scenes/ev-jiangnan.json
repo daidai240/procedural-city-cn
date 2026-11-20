@@ -1,0 +1,7 @@
+{
+  "style": "jiangnan",
+  "time": 0.3,
+  "scenes": [
+    { "name": "jiangnan-lane", "camera": { "pos": [4.2, 3.1, 240], "target": [-2.5, 2.4, 80] }, "panel": "closed", "labels": false }
+  ]
+}

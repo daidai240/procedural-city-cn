@@ -1,0 +1,227 @@
+[
+  {
+    "name": "chongqing-default",
+    "file": "shots\\before\\chongqing-default.png",
+    "durationMs": 11307,
+    "info": {
+      "style": "chongqing",
+      "time": 0.9,
+      "buildings": 1055,
+      "labels": 5,
+      "calls": 1,
+      "triangles": 1,
+      "fps": "—"
+    },
+    "errors": []
+  },
+  {
+    "name": "chongqing-day",
+    "file": "shots\\before\\chongqing-day.png",
+    "durationMs": 14358,
+    "info": {
+      "style": "chongqing",
+      "time": 0.18,
+      "buildings": 1055,
+      "labels": 5,
+      "calls": 1,
+      "triangles": 1,
+      "fps": "—"
+    },
+    "errors": []
+  },
+  {
+    "name": "chongqing-night",
+    "file": "shots\\before\\chongqing-night.png",
+    "durationMs": 14143,
+    "info": {
+      "style": "chongqing",
+      "time": 0.95,
+      "buildings": 1055,
+      "labels": 5,
+      "calls": 1,
+      "triangles": 1,
+      "fps": "—"
+    },
+    "errors": []
+  },
+  {
+    "name": "lujiazui-default",
+    "file": "shots\\before\\lujiazui-default.png",
+    "durationMs": 8537,
+    "info": {
+      "style": "lujiazui",
+      "time": 0.72,
+      "buildings": 242,
+      "labels": 5,
+      "calls": 1,
+      "triangles": 1,
+      "fps": "—"
+    },
+    "errors": []
+  },
+  {
+    "name": "lujiazui-day",
+    "file": "shots\\before\\lujiazui-day.png",
+    "durationMs": 8676,
+    "info": {
+      "style": "lujiazui",
+      "time": 0.18,
+      "buildings": 242,
+      "labels": 5,
+      "calls": 1,
+      "triangles": 1,
+      "fps": "—"
+    },
+    "errors": []
+  },
+  {
+    "name": "lujiazui-night",
+    "file": "shots\\before\\lujiazui-night.png",
+    "durationMs": 8264,
+    "info": {
+      "style": "lujiazui",
+      "time": 0.95,
+      "buildings": 242,
+      "labels": 5,
+      "calls": 1,
+      "triangles": 1,
+      "fps": "—"
+    },
+    "errors": []
+  },
+  {
+    "name": "xian-default",
+    "file": "shots\\before\\xian-default.png",
+    "durationMs": 12184,
+    "info": {
+      "style": "xian",
+      "time": 0.55,
+      "buildings": 318,
+      "labels": 4,
+      "calls": 1,
+      "triangles": 1,
+      "fps": "—"
+    },
+    "errors": []
+  },
+  {
+    "name": "xian-day",
+    "file": "shots\\before\\xian-day.png",
+    "durationMs": 8982,
+    "info": {
+      "style": "xian",
+      "time": 0.18,
+      "buildings": 318,
+      "labels": 4,
+      "calls": 1,
+      "triangles": 1,
+      "fps": "—"
+    },
+    "errors": []
+  },
+  {
+    "name": "xian-night",
+    "file": "shots\\before\\xian-night.png",
+    "durationMs": 10027,
+    "info": {
+      "style": "xian",
+      "time": 0.95,
+      "buildings": 318,
+      "labels": 4,
+      "calls": 1,
+      "triangles": 1,
+      "fps": "—"
+    },
+    "errors": []
+  },
+  {
+    "name": "shenzhen-default",
+    "file": "shots\\before\\shenzhen-default.png",
+    "durationMs": 10811,
+    "info": {
+      "style": "shenzhen",
+      "time": 0.94,
+      "buildings": 551,
+      "labels": 5,
+      "calls": 1,
+      "triangles": 1,
+      "fps": "—"
+    },
+    "errors": []
+  },
+  {
+    "name": "shenzhen-day",
+    "file": "shots\\before\\shenzhen-day.png",
+    "durationMs": 13062,
+    "info": {
+      "style": "shenzhen",
+      "time": 0.18,
+      "buildings": 551,
+      "labels": 5,
+      "calls": 1,
+      "triangles": 1,
+      "fps": "—"
+    },
+    "errors": []
+  },
+  {
+    "name": "shenzhen-night",
+    "file": "shots\\before\\shenzhen-night.png",
+    "durationMs": 10451,
+    "info": {
+      "style": "shenzhen",
+      "time": 0.95,
+      "buildings": 551,
+      "labels": 5,
+      "calls": 1,
+      "triangles": 1,
+      "fps": "—"
+    },
+    "errors": []
+  },
+  {
+    "name": "jiangnan-default",
+    "file": "shots\\before\\jiangnan-default.png",
+    "durationMs": 11337,
+    "info": {
+      "style": "jiangnan",
+      "time": 0.3,
+      "buildings": 216,
+      "labels": 5,
+      "calls": 1,
+      "triangles": 1,
+      "fps": "—"
+    },
+    "errors": []
+  },
+  {
+    "name": "jiangnan-day",
+    "file": "shots\\before\\jiangnan-day.png",
+    "durationMs": 12490,
+    "info": {
+      "style": "jiangnan",
+      "time": 0.18,
+      "buildings": 216,
+      "labels": 5,
+      "calls": 1,
+      "triangles": 1,
+      "fps": "—"
+    },
+    "errors": []
+  },
+  {
+    "name": "jiangnan-night",
+    "file": "shots\\before\\jiangnan-night.png",
+    "durationMs": 11000,
+    "info": {
+      "style": "jiangnan",
+      "time": 0.95,
+      "buildings": 216,
+      "labels": 5,
+      "calls": 1,
+      "triangles": 1,
+      "fps": "—"
+    },
+    "errors": []
+  }
+]

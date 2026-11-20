@@ -1,0 +1,21 @@
+[
+  { "name": "chongqing-default", "style": "chongqing", "time": null },
+  { "name": "chongqing-day", "style": "chongqing", "time": 0.18 },
+  { "name": "chongqing-night", "style": "chongqing", "time": 0.95 },
+
+  { "name": "lujiazui-default", "style": "lujiazui", "time": null },
+  { "name": "lujiazui-day", "style": "lujiazui", "time": 0.18 },
+  { "name": "lujiazui-night", "style": "lujiazui", "time": 0.95 },
+
+  { "name": "xian-default", "style": "xian", "time": null },
+  { "name": "xian-day", "style": "xian", "time": 0.18 },
+  { "name": "xian-night", "style": "xian", "time": 0.95 },
+
+  { "name": "shenzhen-default", "style": "shenzhen", "time": null },
+  { "name": "shenzhen-day", "style": "shenzhen", "time": 0.18 },
+  { "name": "shenzhen-night", "style": "shenzhen", "time": 0.95 },
+
+  { "name": "jiangnan-default", "style": "jiangnan", "time": null },
+  { "name": "jiangnan-day", "style": "jiangnan", "time": 0.18 },
+  { "name": "jiangnan-night", "style": "jiangnan", "time": 0.95 }
+]

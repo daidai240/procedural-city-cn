@@ -1,0 +1,7 @@
+{
+  "style": "shenzhen",
+  "time": 0.95,
+  "scenes": [
+    { "name": "shenzhen-bay", "panel": "closed", "labels": false }
+  ]
+}

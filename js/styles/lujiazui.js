@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { clamp } from '../rng.js';
 import { twistedTowerGeometry } from '../geom.js';
 import { addRoad, addStreetGrid, addLampsAlong } from './shared.js';
+import { ribbonGeometry, samplePath } from '../geom.js';
 
 const PALETTE = {
   day: {
@@ -12,12 +13,12 @@ const PALETTE = {
   dusk: {
     skyTop: '#2f3f6e', skyHorizon: '#ffb08a', skyBottom: '#6c5f77', sunColor: '#ffc9a0',
     fogColor: '#b3929a', hemiSky: '#aebcd8', hemiGround: '#3a3338', horizonGlow: '#ff9d7a',
-    waterDeep: '#22303f', waterShallow: '#6b5a67', sunIntensity: 1.25, hemiIntensity: 0.62,
+    waterDeep: '#1c2b36', waterShallow: '#3e5a66', sunIntensity: 1.25, hemiIntensity: 0.7,
   },
   night: {
     skyTop: '#050a16', skyHorizon: '#122238', skyBottom: '#080d16', sunColor: '#9fb8e0',
-    fogColor: '#0c1622', hemiSky: '#2a4266', hemiGround: '#332a2c', horizonGlow: '#3a5a9a',
-    waterDeep: '#071019', waterShallow: '#12283a', sunIntensity: 0.32, hemiIntensity: 0.55,
+    fogColor: '#0d1620', hemiSky: '#2a4266', hemiGround: '#332a2c', horizonGlow: '#3a5a9a',
+    waterDeep: '#102431', waterShallow: '#24495a', sunIntensity: 0.4, hemiIntensity: 0.72,
   },
   nightCityGlow: 0.4,
   nightGlowColor: '#6f8fff',
@@ -47,7 +48,7 @@ export default {
   accentRgb: '95, 183, 255',
   fogScale: 0.7,
   exposure: 1.04,
-  waterReflect: 0.32,
+  waterReflect: 0.52,
   env: PALETTE,
   hasWater: true,
   patterns: [
@@ -58,7 +59,7 @@ export default {
   defaults: {
     density: 0.82, block: 1.0, avgHeight: 1.12, heightVar: 0.62,
     commercial: 0.72, residential: 0.23, industrial: 0.05,
-    water: 0.95, parks: 0.1, terrain: 0.04, time: 0.72, fog: 0.2,
+    water: 0.95, parks: 0.1, terrain: 0.04, time: 0.62, fog: 0.2,
   },
   views: [
     { key: 'bund', label: '外滩对望', pos: [180, 210, 600], target: [8, 58, -5] },
@@ -71,7 +72,10 @@ export default {
     const S = params.size;
 
     // ------- land / river / promenade -------
-    const groundMat = ctx.mat('ground', { color: '#2b2f33', roughness: 0.92 });
+    const groundMat = ctx.nightSurface('ground', {
+      color: '#2b2f33', roughness: 0.9, sheen: 0.22,
+      nightLift: '#18202a', nightLiftScale: 0.5,
+    });
     ctx.box(groundMat, 2000, 2, 2000, 0, -2.6, 0);
     ctx.box(groundMat, 520, 3.4, 280, 0, -2.6, -76);
     // South bank (the viewer stands on the Bund side).
@@ -90,6 +94,41 @@ export default {
       ctx.box(bankMat, 26, 1.2, 22, x, 1.2, 74);
       ctx.lamp(x + 11, 2, 82, '#9fd8ff', 1);
     }
+    // Lit river edges: the river must read as a river from the default view.
+    const bankGlow = ctx.glow('bank-glow', '#ffd9a0', 0.85, 1.8);
+    for (const z of [64.5, 223.5]) {
+      const pts = samplePath([
+        { x: -250, y: 0.55, z }, { x: 0, y: 0.55, z }, { x: 250, y: 0.55, z },
+      ], 24);
+      ctx.world.add(new THREE.Mesh(ribbonGeometry(pts, 2.2, 0.06), bankGlow));
+      for (let x = -240; x <= 240; x += 20) ctx.lamp(x, 1.7, z, '#ffd9a0', 0.8);
+    }
+    // Skyline reflections on the Huangpu: long soft streaks of light, so the
+    // river reads as water instead of a flat pink band.
+    const reflCanvas = document.createElement('canvas');
+    reflCanvas.width = 128;
+    reflCanvas.height = 128;
+    const rctx = reflCanvas.getContext('2d');
+    const rgrad = rctx.createLinearGradient(0, 0, 0, 128);
+    rgrad.addColorStop(0, 'rgba(255,255,255,0)');
+    rgrad.addColorStop(0.45, 'rgba(255,255,255,0.6)');
+    rgrad.addColorStop(1, 'rgba(255,255,255,0)');
+    rctx.fillStyle = rgrad;
+    rctx.fillRect(0, 0, 128, 128);
+    const reflTex = ctx.addTexture(new THREE.CanvasTexture(reflCanvas));
+    reflTex.colorSpace = THREE.SRGBColorSpace;
+    for (let i = 0; i < 12; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        map: reflTex, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending,
+        depthWrite: false, color: new THREE.Color(i % 2 ? '#ffcf9a' : '#9fd8ff'),
+      });
+      mat.userData.disposeOnClear = true;
+      ctx.materials.push(mat);
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(rng.range(10, 22), rng.range(60, 120)), mat);
+      plane.rotation.x = -Math.PI / 2;
+      plane.position.set(rng.range(-220, 220), 0.1, rng.range(85, 205));
+      ctx.world.add(plane);
+    }
 
     // ------- materials -------
     const glass = ctx.facade('glass', {
@@ -104,10 +143,13 @@ export default {
       winA: '#ffe2ab', winB: '#ffc880', floorH: 3.4, colW: 2.6, lit: 0.62,
       roughness: 0.85, metalness: 0.03, glow: 1.3,
     });
-    const towerGlass = ctx.mat('tower-glass', { color: '#8fb6cf', roughness: 0.18, metalness: 0.55 });
-    const towerGlass2 = ctx.mat('tower-glass2', { color: '#a9c4d4', roughness: 0.14, metalness: 0.62, emissive: '#1b3a55', emissiveIntensity: 0.55 });
-    const gold = ctx.mat('gold', { color: '#b79a68', roughness: 0.32, metalness: 0.8 });
-    const darkMetal = ctx.mat('dark-metal', { color: '#6f7780', roughness: 0.4, metalness: 0.7 });
+    const towerGlass = ctx.mat('tower-glass', {
+      color: '#8fb6cf', roughness: 0.22, metalness: 0.5,
+      emissive: '#163246', emissiveIntensity: 0.55,
+    });
+    const towerGlass2 = ctx.mat('tower-glass2', { color: '#a9c4d4', roughness: 0.14, metalness: 0.62, emissive: '#1b3a55', emissiveIntensity: 0.7 });
+    const gold = ctx.mat('gold', { color: '#b79a68', roughness: 0.32, metalness: 0.8, emissive: '#3a2c12', emissiveIntensity: 0.45 });
+    const darkMetal = ctx.mat('dark-metal', { color: '#6f7780', roughness: 0.4, metalness: 0.7, emissive: '#121820', emissiveIntensity: 0.35 });
     const concrete = ctx.mat('concrete', { color: '#9c9a94', roughness: 0.9 });
     const glowCool = ctx.glow('cool', '#8fd8ff', 1, 2.4);
     const glowWarm = ctx.glow('warm', '#ffd28a', 1, 2.2);
@@ -315,6 +357,26 @@ export default {
       if (x % 40 === 0) ctx.tree(x + 9, 0.9, 256, rng.range(0.8, 1.2), 'round', '#4c7444');
     }
     ctx.label('外滩', '万国建筑博览群', 120, 14, 244);
+
+    // ------- Bund row: a continuous historic waterfront skyline -------
+    const bundMat = ctx.facade('bund', {
+      winA: '#ffd9a0', winB: '#ffc27a', floorH: 3.6, colW: 2.9, lit: 0.55,
+      roughness: 0.9, metalness: 0.02, glow: 1.05,
+    });
+    const bundStone = ctx.mat('bund-stone', { color: '#a49b8b', roughness: 0.92 });
+    for (let i = 0; i < 18; i++) {
+      const x = -272 + i * 32;
+      const h = 14 + ((i * 7) % 9);
+      const w = 26;
+      ctx.addBuilding('bund', bundMat, {
+        x, y: 0.55, z: 252, w, h, d: 13,
+        color: rng.pick(['#b9b0a0', '#c4bbaa', '#a9a091']),
+        lit: 0.5, seed: rng.next(), variant: rng.next(),
+      });
+      // Cornice and a warm roofline so the row reads as one horizontal band.
+      ctx.box(bundStone, w + 1.2, 0.9, 14.2, x, 0.55 + h, 252);
+      ctx.box(glowWarm, w * 0.86, 0.3, 0.4, x, 0.55 + h - 0.6, 258.6);
+    }
 
     // Trees + boats.
     for (let i = 0; i < 80; i++) {

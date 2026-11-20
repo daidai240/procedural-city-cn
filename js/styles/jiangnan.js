@@ -5,7 +5,7 @@ const PALETTE = {
   day: {
     skyTop: '#9fb6c2', skyHorizon: '#dfe8e2', skyBottom: '#c0cdc7', sunColor: '#fff5e2',
     fogColor: '#b3c0ba', hemiSky: '#cfdbd6', hemiGround: '#454b3f', horizonGlow: '#e8f0e8',
-    waterDeep: '#2b3b37', waterShallow: '#4f6b62', sunIntensity: 1.7, hemiIntensity: 1.0,
+    waterDeep: '#2e403c', waterShallow: '#5b7c72', sunIntensity: 1.7, hemiIntensity: 1.0,
   },
   dusk: {
     skyTop: '#6a7c8c', skyHorizon: '#f0c2a0', skyBottom: '#a5a8a0', sunColor: '#ffe0b0',
@@ -33,7 +33,7 @@ export default {
   accentRgb: '127, 200, 178',
   fogScale: 0.95,
   exposure: 1.1,
-  waterReflect: 0.18,
+  waterReflect: 0.6,
   env: PALETTE,
   hasWater: true,
   // Pitched tile roofs are part of every house; skip the flat-roof detail layer.
@@ -47,7 +47,9 @@ export default {
     water: 0.9, parks: 0.2, terrain: 0.02, time: 0.3, fog: 0.2,
   },
   views: [
-    { key: 'lane', label: '水巷视角', pos: [0, 8, 240], target: [0, 3.6, 80] },
+    // Boat-level camera: low over the canal, slightly off the centre line, so
+    // the first frame reads as a water lane instead of a tunnel between walls.
+    { key: 'lane', label: '水巷视角', pos: [4.2, 3.1, 240], target: [-2.5, 2.4, 80] },
     { key: 'bridge', label: '石拱桥', pos: [28, 22, 8], target: [0, 4, -40] },
     { key: 'aerial', label: '水乡全景', pos: [200, 160, 300], target: [0, 2, 0] },
   ],
@@ -56,7 +58,10 @@ export default {
     const { rng, params } = ctx;
 
     // ------- ground blocks around canals -------
-    const groundMat = ctx.mat('ground', { color: '#5f665a', roughness: 0.97 });
+    const groundMat = ctx.nightSurface('ground', {
+      color: '#5f665a', roughness: 0.97, sheen: 0.18,
+      nightLift: '#202620', nightLiftScale: 0.35,
+    });
     ctx.box(groundMat, 2000, 2, 2000, 0, -2.6, 0);
     const stoneMat = ctx.mat('stone', { color: '#9a9a8c', roughness: 0.94 });
     const darkStone = ctx.mat('dark-stone', { color: '#55574f', roughness: 0.92 });
@@ -71,6 +76,16 @@ export default {
     const redGlow = ctx.glow('lantern', '#ff7146', 0.95, 2.2);
     const warmGlow = ctx.glow('warm', '#ffcf95', 0.9, 2.0);
     const roofGeo = gableRoofGeometry(1, 0.18);
+    // All small house parts share instanced batches, otherwise every window,
+    // eave, ridge and step becomes its own draw call (this style had 2.6k).
+    const unitBox = new THREE.BoxGeometry(1, 1, 1);
+    unitBox.translate(0, 0.5, 0);
+    const roofBatch = ctx.instance('jiangnan-roofs', roofGeo, roofMat);
+    const eaveBatch = ctx.instance('jiangnan-eaves', unitBox, stoneMat);
+    const ridgeBatch = ctx.instance('jiangnan-ridges', unitBox, darkStone);
+    const trimBatch = ctx.instance('jiangnan-trim', unitBox, woodMat);
+    const lanternBatch = ctx.instance('jiangnan-lanterns', unitBox, redGlow);
+    const stepBatch = ctx.instance('jiangnan-steps', unitBox, stoneMat);
 
     const yTop = 0.55;
     const slab = (x, z, w, d) => {
@@ -106,31 +121,44 @@ export default {
         color: rng.pick(['#f2eee2', '#f7f3e8', '#e8e3d5', '#efe9dc']),
         lit: rng.range(0.35, 0.7), seed: rng.next(), variant: rng.next(),
       });
-      const roof = new THREE.Mesh(roofGeo, roofMat);
-      roof.scale.set(w * 1.2, 4.1, d * 1.36);
-      roof.position.set(x, yTop + h, z);
-      roof.rotation.y = rotY;
-      ctx.world.add(roof);
+      roofBatch.add({ x, y: yTop + h, z, w: w * 1.2, h: 4.1, d: d * 1.36, rotY, color: '#ffffff' });
       // Pale eave board under the dark tile roof.
-      ctx.box(stoneMat, w * 1.18, 0.2, d * 1.34, x, yTop + h + 0.05, z, rotY);
+      eaveBatch.add({ x, y: yTop + h + 0.05, z, w: w * 1.18, h: 0.2, d: d * 1.34, rotY, color: '#ffffff' });
       // Dark ridge along the roof top.
-      ctx.box(darkStone, w * 1.16, 0.28, 0.5, x, yTop + h + 3.85, z, rotY);
+      ridgeBatch.add({ x, y: yTop + h + 3.85, z, w: w * 1.16, h: 0.28, d: 0.5, rotY, color: '#ffffff' });
       // Wooden window / door bands on the canal-facing side.
       const facing = opts.facing ?? 1;
       const dx = Math.sin(rotY) * (d / 2 + 0.16) * facing;
       const dz = Math.cos(rotY) * (d / 2 + 0.16) * facing;
+      const tx = Math.cos(rotY);
+      const tz = -Math.sin(rotY);
       const floors = Math.max(1, Math.floor(h / 3.4));
       for (let f = 0; f < floors; f++) {
-        ctx.box(woodMat, w * 0.66, 0.5, 0.3, x + dx, yTop + 1.6 + f * 3.4, z + dz, rotY);
+        trimBatch.add({ x: x + dx, y: yTop + 1.6 + f * 3.4, z: z + dz, w: w * 0.66, h: 0.5, d: 0.3, rotY, color: '#ffffff' });
+        // Lattice windows instead of a blank white wall.
+        for (const off of [-0.24, 0.24]) {
+          trimBatch.add({
+            x: x + dx + tx * w * off, y: yTop + 2.3 + f * 3.4, z: z + dz + tz * w * off,
+            w: w * 0.17, h: 1.3, d: 0.18, rotY, color: '#ffffff',
+          });
+          lanternBatch.add({
+            x: x + dx + tx * w * (off + 0.13), y: yTop + 2.0 + f * 3.4, z: z + dz + tz * w * (off + 0.13),
+            w: 0.3, h: 0.3, d: 0.3, rotY, color: '#ffffff',
+          });
+        }
         if (rng.chance(0.8)) {
-          ctx.box(redGlow, 0.5, 0.5, 0.5, x + dx * 1.05 + Math.cos(rotY) * w * 0.36, yTop + 2.2 + f * 3.4, z + dz * 1.05 - Math.sin(rotY) * w * 0.36, rotY);
+          lanternBatch.add({
+            x: x + dx * 1.05 + Math.cos(rotY) * w * 0.36, y: yTop + 2.2 + f * 3.4,
+            z: z + dz * 1.05 - Math.sin(rotY) * w * 0.36, w: 0.5, h: 0.5, d: 0.5, rotY,
+            color: '#ffffff',
+          });
         }
       }
       if (rng.chance(0.5)) {
-        ctx.box(woodMat, 1.4, 2.4, 0.3, x + dx, yTop + 1.2, z + dz, rotY);
+        trimBatch.add({ x: x + dx, y: yTop + 1.2, z: z + dz, w: 1.4, h: 2.4, d: 0.3, rotY, color: '#ffffff' });
       }
       // White side wall with dark trim.
-      ctx.box(darkStone, w + 0.15, 0.35, d + 0.15, x, yTop + h - 0.2, z, rotY);
+      ridgeBatch.add({ x, y: yTop + h - 0.2, z, w: w + 0.15, h: 0.35, d: d + 0.15, rotY, color: '#ffffff' });
     };
 
     const houseW = 11.5;
@@ -159,12 +187,39 @@ export default {
     }
 
     // ------- arched stone bridges -------
+    // A faint arch-shaped reflection on the canal surface: the water shader
+    // only mirrors the sky, so the bridge itself needs a decal to read.
+    const reflCanvas = document.createElement('canvas');
+    reflCanvas.width = 128;
+    reflCanvas.height = 128;
+    const rctx = reflCanvas.getContext('2d');
+    rctx.fillStyle = 'rgba(10,22,20,0.62)';
+    rctx.fillRect(0, 0, 128, 128);
+    rctx.fillStyle = 'rgba(150,182,172,0.5)';
+    rctx.beginPath();
+    rctx.arc(64, 128, 46, Math.PI, 0);
+    rctx.fill();
+    for (let yy = 6; yy < 128; yy += 10) {
+      rctx.fillStyle = 'rgba(255,255,255,0.05)';
+      rctx.fillRect(0, yy, 128, 2);
+    }
+    const reflTex = ctx.addTexture(new THREE.CanvasTexture(reflCanvas));
+    reflTex.colorSpace = THREE.SRGBColorSpace;
+    const reflMat = new THREE.MeshBasicMaterial({
+      map: reflTex, transparent: true, opacity: 0.62, depthWrite: false,
+    });
+    reflMat.userData.disposeOnClear = true;
+    ctx.materials.push(reflMat);
+
     const bridge = (x, z, span, depth, rotY, label) => {
       const geo = archBridgeGeometry(span, 6.4, depth, 0.6);
       const mesh = new THREE.Mesh(geo, bridgeMat);
       mesh.position.set(x, yTop, z);
       mesh.rotation.y = rotY;
       ctx.world.add(mesh);
+      const refl = ctx.plane(reflMat, span * 1.15, depth * 1.8, x, 0.07, z, -Math.PI / 2);
+      refl.rotation.y = rotY;
+      refl.renderOrder = 2;
       // railings
       for (const s of [-1, 1]) {
         const ox = Math.cos(rotY) * s * (depth / 2 - 0.5);
@@ -242,10 +297,13 @@ export default {
       ctx.lamp(-10.2, 3.2, z, '#ff8a5a', 0.85);
       ctx.lamp(10.2, 3.2, z + 11, '#ff8a5a', 0.85);
     }
-    for (const z of [-150, -30, 60, 150]) {
+    for (const z of [-210, -170, -130, -90, -50, -10, 30, 60, 90, 130, 170, 210, 250]) {
       for (const side of [-1, 1]) {
         for (let s = 0; s < 5; s++) {
-          ctx.box(stoneMat, 1.5, 0.28, 1.4, side * (9.2 + s * 1.1), yTop - 0.2 - s * 0.18, z);
+          stepBatch.add({
+            x: side * (9.2 + s * 1.1), y: yTop - 0.2 - s * 0.18, z,
+            w: 1.5, h: 0.28, d: 1.4, color: '#ffffff',
+          });
         }
       }
     }
@@ -289,14 +347,8 @@ export default {
     ctx.cylinder(roofMat, 0.25, 0.55, 9, pgX, py, pgZ, 6);
     ctx.label('水乡古塔', '七层砖塔', pgX, py + 12, pgZ);
 
-    // Boats reflected in the canal: a few floating lanterns.
-    for (let i = 0; i < 24; i++) {
-      const onMain = rng.chance(0.55);
-      const x = onMain ? rng.range(-6, 6) : rng.range(-260, 260);
-      const z = onMain ? rng.range(-260, 260) : rng.chance(0.5) ? -80 : 96;
-      const y = 0.35;
-      ctx.lamp(x, y, z, '#ffb06a', 0.75);
-    }
+    // Bank lanterns already light the canal; do not scatter extra point sprites
+    // on the water (they read as floating squares).
 
     // Mist layer near the water.
     const mistMat = new THREE.MeshBasicMaterial({

@@ -1,0 +1,14 @@
+{
+  "style": "chongqing",
+  "time": 0.68,
+  "scenes": [
+    { "name": "chongqing-default", "time": 0.9, "camera": { "pos": [170, 240, 540], "target": [8, 55, 20] }, "panel": "closed", "labels": false },
+    { "name": "chongqing-night-ground", "time": 0.95, "camera": { "pos": [140, 195, 490], "target": [8, 22, 20] }, "hideBuildings": true, "panel": "closed", "labels": false },
+    { "name": "chongqing-bridge", "time": 0.9, "camera": { "pos": [-40, 60, 210], "target": [-126, 40, 80] }, "panel": "closed", "labels": false },
+    { "name": "chongqing-terrain", "time": 0.18, "camera": { "pos": [430, 70, 150], "target": [-40, 30, 60] }, "panel": "closed", "labels": false },
+    { "name": "chongqing-hongya", "time": 0.68, "camera": { "pos": [30, 61, 212], "target": [98, 29, 92] }, "panel": "closed", "labels": false },
+    { "name": "chongqing-liziba", "time": 0.9, "camera": { "pos": [30, 48, 128], "target": [-26, 22, 6] }, "panel": "closed", "labels": false },
+    { "name": "chongqing-interchange", "time": 0.68, "camera": { "pos": [158, 260, 170], "target": [158, 45, 46] }, "panel": "closed", "labels": false },
+    { "name": "chongqing-river", "time": 0.68, "camera": { "pos": [20, 6, 190], "target": [0, 30, 80] }, "panel": "closed", "labels": false }
+  ]
+}

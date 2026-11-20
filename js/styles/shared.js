@@ -10,7 +10,12 @@ export function groundMaterial(ctx, key, color = '#22262b', roughness = 0.95) {
 }
 
 export function roadMaterial(ctx, key = 'road', color = '#15181c') {
-  return ctx.mat(key, { color, roughness: 0.72, metalness: 0.05 });
+  return ctx.mat(key, {
+    color, roughness: 0.72, metalness: 0.05,
+    // A barely-there emission keeps the road network readable after dark
+    // without turning the streets into light strips.
+    emissive: '#0c1015', emissiveIntensity: 1,
+  });
 }
 
 // Adds a road ribbon plus traffic on the same path.
