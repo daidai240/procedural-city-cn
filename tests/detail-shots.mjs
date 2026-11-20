@@ -80,7 +80,7 @@ for (const s of scenarios) {
   const file = path.join(outDir, `${prefix}-${s.name}.jpg`);
   const buf = await page.screenshot();
   const png = PNG.sync.read(buf);
-  const encoded = jpeg.encode({ data: png.data, width: png.width, height: png.height }, 90);
+  const encoded = jpeg.encode({ data: png.data, width: png.width, height: png.height }, 80);
   fs.writeFileSync(file, encoded.data);
   const info = await page.evaluate(() => ({
     style: window.__CITY__.style.id,
