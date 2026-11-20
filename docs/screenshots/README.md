@@ -25,7 +25,7 @@
 
 ## detail-lod/
 
-本轮「近景建筑细节 + 远景轮廓/地表顺滑」改动的 Before / After 对照。四类场景均使用同一 1440 × 900 视口、同一无头 Chromium、同一相机、同一时间与雾参数：
+本轮「近景建筑细节 + 远景轮廓/地表顺滑」改动的 Before / After 对照。五个场景均使用同一 1440 × 900 视口、同一无头 Chromium、同一相机、同一时间与雾参数：
 
 - `chongqing-southbank-close-day`：白天南岸近景，检查楼层、窗格、屋顶结构。
 - `chongqing-south-day`：白天南岸全景，检查远景立面 LOD 与地形轮廓。
